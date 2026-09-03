@@ -1,0 +1,277 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  FARMER
+  BUYER
+  ADMIN
+}
+
+enum BuyerType {
+  WHOLESALER
+  RETAILER
+  PROCESSOR
+  RESTAURANT
+  OTHER
+}
+
+enum ListingStatus {
+  ACTIVE
+  SOLD
+  EXPIRED
+}
+
+enum PurchaseRequestStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+  COUNTERED
+}
+
+enum OrderStatus {
+  PENDING_CONFIRMATION
+  CONFIRMED
+  IN_TRANSIT
+  COMPLETED
+  CANCELLED
+}
+
+enum DeliveryType {
+  PICKUP
+  DELIVERY
+}
+
+enum NotificationType {
+  PURCHASE_REQUEST
+  REQUEST_ACCEPTED
+  REQUEST_REJECTED
+  REQUEST_COUNTERED
+  ORDER_UPDATE
+  VERIFICATION
+  GENERAL
+}
+
+enum Language {
+  en
+  ta
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  password  String
+  role      UserRole
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  farmer        Farmer?
+  buyer         Buyer?
+  notifications Notification[]
+
+  @@index([role])
+}
+
+model Farmer {
+  id         String   @id @default(cuid())
+  userId     String   @unique
+  name       String
+  phone      String
+  email      String
+  district   String
+  state      String   @default("Tamil Nadu")
+  farmSize   String?
+  cropsGrown String?
+  address    String?
+  language   Language @default(ta)
+  isVerified Boolean  @default(false)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  user              User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  listings          Listing[]
+  orders            Order[]           @relation("FarmerOrders")
+  salesRecords      SalesRecord[]
+
+  @@index([district])
+  @@index([isVerified])
+}
+
+model Buyer {
+  id           String    @id @default(cuid())
+  userId       String    @unique
+  name         String
+  phone        String
+  email        String
+  organization String?
+  district     String
+  state        String    @default("Tamil Nadu")
+  buyerType    BuyerType @default(WHOLESALER)
+  address      String?
+  language     Language  @default(en)
+  isVerified   Boolean   @default(false)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  user             User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  purchaseRequests PurchaseRequest[]
+  orders           Order[]           @relation("BuyerOrders")
+
+  @@index([district])
+  @@index([buyerType])
+  @@index([isVerified])
+}
+
+model Crop {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  nameTamil String
+  category  String
+  unit      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  marketPrices MarketPrice[]
+  listings     Listing[]
+  salesRecords SalesRecord[]
+
+  @@index([category])
+}
+
+model MarketPrice {
+  id           String   @id @default(cuid())
+  cropId       String
+  district     String
+  marketName   String
+  date         DateTime @db.Date
+  minPrice     Float
+  maxPrice     Float
+  averagePrice Float
+  unit         String
+  createdAt    DateTime @default(now())
+
+  crop Crop @relation(fields: [cropId], references: [id], onDelete: Cascade)
+
+  @@index([cropId, district, date])
+  @@index([date])
+}
+
+model Listing {
+  id             String        @id @default(cuid())
+  farmerId       String
+  cropId         String
+  variety        String?
+  quantity       Float
+  unit           String
+  expectedPrice  Float
+  district       String
+  state          String        @default("Tamil Nadu")
+  harvestDate    DateTime?
+  availableFrom  DateTime?
+  availableUntil DateTime?
+  description    String?
+  imageUrl       String?
+  status         ListingStatus @default(ACTIVE)
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  farmer           Farmer            @relation(fields: [farmerId], references: [id], onDelete: Cascade)
+  crop             Crop              @relation(fields: [cropId], references: [id], onDelete: Restrict)
+  purchaseRequests PurchaseRequest[]
+  orders           Order[]
+
+  @@index([farmerId])
+  @@index([cropId])
+  @@index([district])
+  @@index([status])
+  @@index([expectedPrice])
+}
+
+model PurchaseRequest {
+  id           String                @id @default(cuid())
+  listingId    String
+  buyerId      String
+  quantity     Float
+  offeredPrice Float
+  deliveryType DeliveryType
+  message      String?
+  status       PurchaseRequestStatus @default(PENDING)
+  createdAt    DateTime              @default(now())
+  updatedAt    DateTime              @updatedAt
+
+  listing Listing @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  buyer   Buyer   @relation(fields: [buyerId], references: [id], onDelete: Cascade)
+  order   Order?
+
+  @@index([listingId])
+  @@index([buyerId])
+  @@index([status])
+}
+
+model Order {
+  id                String       @id @default(cuid())
+  purchaseRequestId String       @unique
+  listingId         String
+  buyerId           String
+  farmerId          String
+  quantity          Float
+  agreedPrice       Float
+  totalAmount       Float
+  deliveryType      DeliveryType
+  status            OrderStatus  @default(PENDING_CONFIRMATION)
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
+
+  purchaseRequest PurchaseRequest @relation(fields: [purchaseRequestId], references: [id], onDelete: Cascade)
+  listing         Listing         @relation(fields: [listingId], references: [id], onDelete: Restrict)
+  buyer           Buyer           @relation("BuyerOrders", fields: [buyerId], references: [id], onDelete: Restrict)
+  farmer          Farmer          @relation("FarmerOrders", fields: [farmerId], references: [id], onDelete: Restrict)
+  salesRecord     SalesRecord?
+
+  @@index([buyerId])
+  @@index([farmerId])
+  @@index([status])
+}
+
+model SalesRecord {
+  id          String      @id @default(cuid())
+  orderId     String      @unique
+  farmerId    String
+  cropId      String
+  buyerName   String
+  quantity    Float
+  unit        String
+  price       Float
+  totalAmount Float
+  status      OrderStatus
+  soldAt      DateTime
+  createdAt   DateTime    @default(now())
+
+  order  Order  @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  farmer Farmer @relation(fields: [farmerId], references: [id], onDelete: Cascade)
+  crop   Crop   @relation(fields: [cropId], references: [id], onDelete: Restrict)
+
+  @@index([farmerId])
+  @@index([cropId])
+  @@index([soldAt])
+}
+
+model Notification {
+  id        String           @id @default(cuid())
+  userId    String
+  title     String
+  message   String
+  type      NotificationType @default(GENERAL)
+  isRead    Boolean          @default(false)
+  createdAt DateTime         @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, isRead])
+  @@index([createdAt])
+}
