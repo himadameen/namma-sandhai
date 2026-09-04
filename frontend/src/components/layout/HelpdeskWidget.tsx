@@ -1,4 +1,5 @@
 import { useEffect, useId, useRef, useState } from 'react'
+import { useLocation } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { Mail, Phone, Sprout, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -6,6 +7,14 @@ import { cn } from '@/lib/utils'
 const SUPPORT_EMAIL = 'support@nammasandhai.in'
 const SUPPORT_PHONE = '+914412345678'
 const SUPPORT_PHONE_DISPLAY = '+91 44 1234 5678'
+
+function isPanelRoute(pathname: string) {
+  return (
+    pathname.startsWith('/farmer') ||
+    pathname.startsWith('/buyer') ||
+    pathname.startsWith('/admin')
+  )
+}
 
 function RotatingRing({
   text,
@@ -52,13 +61,15 @@ function RotatingRing({
 
 export function HelpdeskWidget() {
   const { t, i18n } = useTranslation()
+  const location = useLocation()
   const isTamil = i18n.language?.startsWith('ta')
   const textClass = isTamil ? 'font-tamil' : 'font-sans'
   const [open, setOpen] = useState(false)
   const panelRef = useRef<HTMLDivElement>(null)
+  const hideOnPanel = isPanelRoute(location.pathname)
 
   useEffect(() => {
-    if (!open) return
+    if (!open || hideOnPanel) return
 
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') setOpen(false)
@@ -76,7 +87,11 @@ export function HelpdeskWidget() {
       document.removeEventListener('keydown', onKeyDown)
       document.removeEventListener('mousedown', onPointerDown)
     }
-  }, [open])
+  }, [open, hideOnPanel])
+
+  if (hideOnPanel) {
+    return null
+  }
 
   return (
     <div
@@ -154,7 +169,6 @@ export function HelpdeskWidget() {
         </div>
       </div>
 
-      {/* FAB with rotating ring text */}
       <div className="relative h-[4.75rem] w-[4.75rem] sm:h-[5.75rem] sm:w-[5.75rem]">
         <RotatingRing text={t('helpdesk.ringText')} paused={open} tamilMode={isTamil} />
 
@@ -164,8 +178,8 @@ export function HelpdeskWidget() {
           aria-expanded={open}
           aria-label={t('helpdesk.open')}
           className={cn(
-            'helpdesk-fab group absolute left-1/2 top-1/2 flex h-12 w-12 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full sm:h-14 sm:w-14',
-            'bg-primary text-primary-foreground shadow-elevated transition-transform hover:scale-105 active:scale-95',
+            'helpdesk-fab group absolute left-1/2 top-1/2 flex h-12 w-12 -translate-x-1/2 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full transition-transform duration-200 ease-out sm:h-14 sm:w-14',
+            'bg-primary text-primary-foreground shadow-elevated hover:scale-105 active:scale-95',
             open && 'ring-2 ring-accent/50 ring-offset-2 ring-offset-background'
           )}
         >

@@ -1,5 +1,12 @@
-import { apiClient } from './client'
+import { apiClient, API_BASE } from './client'
 import type { Crop } from './market'
+
+export interface ListingMediaItem {
+  id: string
+  url: string
+  type: 'image' | 'video'
+  name?: string
+}
 
 export interface ListingFarmer {
   id: string
@@ -22,6 +29,7 @@ export interface Listing {
   availableUntil: string | null
   description: string | null
   imageUrl: string | null
+  media?: ListingMediaItem[]
   status: 'ACTIVE' | 'SOLD' | 'EXPIRED'
   createdAt: string
   updatedAt: string
@@ -36,6 +44,22 @@ export interface ListingDetail extends Listing {
     maxPrice: number
     unit: string
   } | null
+}
+
+export interface FarmerListingsResponse {
+  listings: Listing[]
+  pagination: {
+    page: number
+    limit: number
+    total: number
+    totalPages: number
+  }
+  summary: {
+    total: number
+    active: number
+    sold: number
+    expired: number
+  }
 }
 
 export interface MarketplaceResponse {
@@ -60,6 +84,7 @@ export interface CreateListingPayload {
   availableUntil?: string
   description?: string
   imageUrl?: string
+  media?: ListingMediaItem[]
 }
 
 function buildQuery(params: Record<string, string | number | boolean | undefined>): string {
@@ -87,7 +112,12 @@ export const listingsApi = {
 
   getById: (id: string) => apiClient<ListingDetail>(`/listings/${id}`),
 
-  getMine: () => apiClient<Listing[]>('/farmers/listings'),
+  getMine: (params?: {
+    page?: number
+    limit?: number
+    status?: Listing['status']
+    search?: string
+  }) => apiClient<FarmerListingsResponse>(`/farmers/listings${buildQuery(params ?? {})}`),
 
   create: (data: CreateListingPayload) =>
     apiClient<Listing>('/farmers/listings', {
@@ -105,4 +135,26 @@ export const listingsApi = {
     apiClient<{ deleted: boolean }>(`/farmers/listings/${id}`, {
       method: 'DELETE',
     }),
+
+  uploadMedia: async (files: File[]) => {
+    const token = localStorage.getItem('namma-sandhai-token')
+    const formData = new FormData()
+    files.forEach((file) => formData.append('files', file))
+
+    const response = await fetch(`${API_BASE}/farmers/listings/media`, {
+      method: 'POST',
+      headers: {
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: formData,
+    })
+
+    const data = await response.json()
+
+    if (!response.ok || !data.success) {
+      throw new Error(data.message || 'Upload failed')
+    }
+
+    return data.data as { media: ListingMediaItem[] }
+  },
 }

@@ -33,6 +33,7 @@ export async function getFarmerDashboard(userId: string) {
     activeOrders,
     salesRecords,
     recentSales,
+    orders,
   ] = await Promise.all([
     prisma.listing.count({
       where: { farmerId: farmer.id, status: ListingStatus.ACTIVE },
@@ -69,6 +70,10 @@ export async function getFarmerDashboard(userId: string) {
       },
       orderBy: { soldAt: 'desc' },
       take: 5,
+    }),
+    prisma.order.findMany({
+      where: { farmerId: farmer.id },
+      select: { status: true },
     }),
   ])
 
@@ -120,6 +125,34 @@ export async function getFarmerDashboard(userId: string) {
       ...item,
       revenue: Math.round(item.revenue),
       quantity: Math.round(item.quantity * 100) / 100,
+      sharePercent:
+        totalRevenue > 0 ? Math.round((item.revenue / totalRevenue) * 1000) / 10 : 0,
+    }))
+
+  const ordersByStatus = {
+    pending: orders.filter((o) => o.status === OrderStatus.PENDING_CONFIRMATION).length,
+    confirmed: orders.filter((o) => o.status === OrderStatus.CONFIRMED).length,
+    inTransit: orders.filter((o) => o.status === OrderStatus.IN_TRANSIT).length,
+    completed: orders.filter((o) => o.status === OrderStatus.COMPLETED).length,
+    cancelled: orders.filter((o) => o.status === OrderStatus.CANCELLED).length,
+  }
+
+  const weeklyMap = new Map<string, number>()
+  for (const record of salesRecords) {
+    const d = new Date(record.soldAt)
+    d.setHours(0, 0, 0, 0)
+    d.setDate(d.getDate() - d.getDay())
+    const key = d.toISOString().slice(0, 10)
+    weeklyMap.set(key, (weeklyMap.get(key) ?? 0) + record.totalAmount)
+  }
+
+  const weeklySales = Array.from(weeklyMap.entries())
+    .sort(([a], [b]) => a.localeCompare(b))
+    .slice(-8)
+    .map(([key, revenue]) => ({
+      week: new Date(key).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }),
+      weekKey: key,
+      revenue: Math.round(revenue),
     }))
 
   return {
@@ -132,7 +165,9 @@ export async function getFarmerDashboard(userId: string) {
       totalQuantitySold: Math.round(totalQuantitySold * 100) / 100,
     },
     monthlySales,
+    weeklySales,
     salesByCrop,
+    ordersByStatus,
     recentSales: recentSales.map(formatSalesRecord),
   }
 }

@@ -7,6 +7,8 @@ import { listingsApi } from '@/api/listings'
 import { useAuth } from '@/store/auth'
 import { formatCurrency } from '@/lib/utils'
 import { getCropEmoji, formatDate } from '@/utils/listings'
+import { listingMediaItems } from '@/utils/media'
+import { ListingMediaGallery } from '@/components/listings/ListingMediaGallery'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent } from '@/components/ui/card'
@@ -52,6 +54,7 @@ export function ListingDetailPage() {
 
   const cropName = isTamil ? listing.crop.nameTamil : listing.crop.name
   const isBuyer = isAuthenticated && user?.role === 'BUYER'
+  const media = listingMediaItems(listing)
 
   return (
     <div className="mx-auto max-w-4xl space-y-6 pb-12">
@@ -63,13 +66,13 @@ export function ListingDetailPage() {
       </Button>
 
       <div className="overflow-hidden rounded-2xl border border-border shadow-card">
-        <div className="aspect-[16/9] bg-muted sm:aspect-[2/1]">
-          <img
-            src={listing.imageUrl ?? 'https://images.unsplash.com/photo-1625246333195-78d9c38ad449?w=800&q=80'}
-            alt={cropName}
-            className="h-full w-full object-cover"
-          />
-        </div>
+        <ListingMediaGallery
+          media={media}
+          alt={cropName}
+          placeholderLabel={t('listings.mediaPlaceholder')}
+          frameClassName="rounded-none border-0 sm:aspect-[2/1]"
+          className="px-6 pt-6 sm:px-8 sm:pt-8"
+        />
 
         <div className="p-6 sm:p-8">
           <div className="flex flex-wrap items-start justify-between gap-4">

@@ -1,14 +1,15 @@
 import { Request, Response, NextFunction } from 'express'
 import * as orderService from '../services/order.service'
-import { updateOrderStatusSchema } from '../validators/order.validator'
+import { updateOrderStatusSchema, farmerOrdersQuerySchema } from '../validators/order.validator'
 import { successResponse } from '../utils/apiResponse'
 import { AppError } from '../middleware/errorHandler'
 
 export async function listFarmerOrders(req: Request, res: Response, next: NextFunction) {
   try {
     if (!req.user) throw new AppError(401, 'Authentication required')
-    const orders = await orderService.getFarmerOrders(req.user.userId)
-    res.json(successResponse(orders))
+    const query = farmerOrdersQuerySchema.parse(req.query)
+    const result = await orderService.getFarmerOrders(req.user.userId, query)
+    res.json(successResponse(result))
   } catch (error) {
     next(error)
   }

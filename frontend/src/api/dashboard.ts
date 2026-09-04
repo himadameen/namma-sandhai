@@ -24,6 +24,7 @@ export interface SalesByCrop {
   revenue: number
   quantity: number
   count: number
+  sharePercent: number
 }
 
 export interface SalesRecord {
@@ -37,10 +38,26 @@ export interface SalesRecord {
   crop: Crop
 }
 
+export interface WeeklySalesPoint {
+  week: string
+  weekKey: string
+  revenue: number
+}
+
+export interface OrdersByStatus {
+  pending: number
+  confirmed: number
+  inTransit: number
+  completed: number
+  cancelled: number
+}
+
 export interface FarmerDashboard {
   kpis: FarmerDashboardKpis
   monthlySales: MonthlySalesPoint[]
+  weeklySales: WeeklySalesPoint[]
   salesByCrop: SalesByCrop[]
+  ordersByStatus: OrdersByStatus
   recentSales: SalesRecord[]
 }
 
@@ -66,19 +83,82 @@ export interface BuyerDashboard {
   recentOrders: BuyerDashboardOrder[]
 }
 
+export interface SalesCropAggregate {
+  cropId: string
+  cropName: string
+  cropNameTamil: string
+  revenue: number
+  quantity: number
+  count: number
+}
+
+export interface SalesMonthlyPoint {
+  monthKey: string
+  revenue: number
+  quantity: number
+  count: number
+}
+
+export interface SalesYearlyPoint {
+  year: number
+  revenue: number
+  quantity: number
+  count: number
+}
+
 export interface SalesRecordsResponse {
   records: SalesRecord[]
+  pagination: {
+    page: number
+    limit: number
+    total: number
+    totalPages: number
+  }
   summary: {
     totalRecords: number
     totalRevenue: number
     totalQuantity: number
+    avgOrderValue: number
+    currentMonthRevenue: number
+    previousMonthRevenue: number
+    currentYearRevenue: number
   }
+  insights: {
+    monthOverMonthPercent: number | null
+    monthOverMonthDirection: 'up' | 'down' | 'stable'
+    currentMonthKey: string
+    previousMonthKey: string
+    bestMonthKey: string | null
+    bestMonthRevenue: number
+    bestYear: number | null
+    bestYearRevenue: number
+  }
+  yearlyRevenue: SalesYearlyPoint[]
+  monthlyRevenue: SalesMonthlyPoint[]
+  topCropsOverall: SalesCropAggregate[]
+  topCropsThisMonth: SalesCropAggregate[]
+  topCropsLastMonth: SalesCropAggregate[]
+}
+
+function buildQuery(params: Record<string, string | number | boolean | undefined>): string {
+  const search = new URLSearchParams()
+  Object.entries(params).forEach(([key, value]) => {
+    if (value !== undefined && value !== '') search.set(key, String(value))
+  })
+  const qs = search.toString()
+  return qs ? `?${qs}` : ''
 }
 
 export const dashboardApi = {
   getFarmerDashboard: () => apiClient<FarmerDashboard>('/farmers/dashboard'),
   getBuyerDashboard: () => apiClient<BuyerDashboard>('/buyers/dashboard'),
-  getFarmerSalesRecords: () => apiClient<SalesRecordsResponse>('/farmers/sales-records'),
+  getFarmerSalesRecords: (params?: {
+    page?: number
+    limit?: number
+    cropId?: string
+    year?: number
+    search?: string
+  }) => apiClient<SalesRecordsResponse>(`/farmers/sales-records${buildQuery(params ?? {})}`),
   exportFarmerSalesCsv: async () => {
     const token = localStorage.getItem('namma-sandhai-token')
     const response = await fetch(`${API_BASE}/farmers/sales-records/export`, {

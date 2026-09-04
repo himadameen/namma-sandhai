@@ -3,6 +3,7 @@ import * as purchaseRequestService from '../services/purchaseRequest.service'
 import {
   createPurchaseRequestSchema,
   counterOfferSchema,
+  farmerPurchaseRequestsQuerySchema,
 } from '../validators/purchaseRequest.validator'
 import { successResponse } from '../utils/apiResponse'
 import { AppError } from '../middleware/errorHandler'
@@ -31,7 +32,8 @@ export async function listBuyerRequests(req: Request, res: Response, next: NextF
 export async function listFarmerRequests(req: Request, res: Response, next: NextFunction) {
   try {
     if (!req.user) throw new AppError(401, 'Authentication required')
-    const result = await purchaseRequestService.getFarmerPurchaseRequests(req.user.userId)
+    const query = farmerPurchaseRequestsQuerySchema.parse(req.query)
+    const result = await purchaseRequestService.getFarmerPurchaseRequests(req.user.userId, query)
     res.json(successResponse(result))
   } catch (error) {
     next(error)

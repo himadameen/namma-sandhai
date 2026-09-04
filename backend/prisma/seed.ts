@@ -8,6 +8,7 @@ import {
   DeliveryType,
   NotificationType,
   Language,
+  Prisma,
 } from '@prisma/client'
 import bcrypt from 'bcrypt'
 import 'dotenv/config'
@@ -94,8 +95,49 @@ const CROP_IMAGES: Record<string, string> = {
 const DEFAULT_IMAGE =
   'https://images.unsplash.com/photo-1625246333195-78d9c38ad449?w=800&q=80'
 
+const PRODUCE_GALLERY = [
+  'https://images.unsplash.com/photo-1592924356588-8e497d3754c0?w=800&q=80',
+  'https://images.unsplash.com/photo-1546094097-2d62a7a2a5df?w=800&q=80',
+  'https://images.unsplash.com/photo-1571771894821-ce9b6c11b08e?w=800&q=80',
+  'https://images.unsplash.com/photo-1622206151226-18ca2c9ab4a1?w=800&q=80',
+  'https://images.unsplash.com/photo-1518977676601-b53f82aba655?w=800&q=80',
+  'https://images.unsplash.com/photo-1553279768-8654fa4cbf6f?w=800&q=80',
+  'https://images.unsplash.com/photo-1464226184884-fa280b87f399?w=800&q=80',
+  'https://images.unsplash.com/photo-1625246333195-78d9c38ad449?w=800&q=80',
+]
+
 function cropImage(name: string) {
   return CROP_IMAGES[name] ?? DEFAULT_IMAGE
+}
+
+function buildListingMedia(urls: string[]): Prisma.InputJsonValue {
+  return urls.map((url, index) => ({
+    id: `seed-media-${index}-${Buffer.from(url).toString('base64url').slice(0, 8)}`,
+    url,
+    type: 'image',
+    name: `produce-${index + 1}.jpg`,
+  }))
+}
+
+function galleryUrlsForCrop(cropName: string, count: number): string[] {
+  const primary = cropImage(cropName)
+  const pool = [primary, ...PRODUCE_GALLERY.filter((url) => url !== primary)]
+  return pool.slice(0, count)
+}
+
+async function applyListingMedia(
+  listingId: string,
+  cropName: string,
+  count: number
+) {
+  const urls = galleryUrlsForCrop(cropName, count)
+  await prisma.listing.update({
+    where: { id: listingId },
+    data: {
+      media: buildListingMedia(urls),
+      imageUrl: urls[0],
+    },
+  })
 }
 
 function daysAgo(n: number): Date {
@@ -142,7 +184,7 @@ async function main() {
       role: UserRole.FARMER,
       farmer: {
         create: {
-          name: 'முருகன்',
+          name: 'Murugan',
           phone: '9876543210',
           email: 'farmer@nammasandhai.demo',
           district: 'Krishnagiri',
@@ -150,7 +192,7 @@ async function main() {
           farmSize: '5 acres',
           cropsGrown: 'Tomato, Onion, Brinjal',
           address: 'Krishnagiri Main Road, Tamil Nadu',
-          language: Language.ta,
+          language: Language.en,
           isVerified: true,
         },
       },
@@ -497,6 +539,8 @@ async function main() {
     },
   })
 
+  await applyListingMedia(demoTomatoListing.id, 'Tomato', 4)
+
   // Pending request from another buyer (demo buyer can still send a fresh request)
   await prisma.purchaseRequest.create({
     data: {
@@ -552,11 +596,128 @@ async function main() {
     },
   })
 
+  // Rich demo dataset for farmer dashboard (20+ records)
+  const demoListings = []
+  for (let i = 0; i < 20; i++) {
+    const crop = crops[i % crops.length]
+    demoListings.push(
+      await prisma.listing.create({
+        data: {
+          farmerId: demoFarmer.id,
+          cropId: crop.id,
+          variety: i % 3 === 0 ? 'Hybrid' : i % 3 === 1 ? 'Local' : 'Premium',
+          quantity: randomBetween(150, 1800),
+          unit: crop.unit,
+          expectedPrice: randomBetween(28, 65),
+          district: 'Krishnagiri',
+          state: 'Tamil Nadu',
+          harvestDate: daysAgo(-randomBetween(1, 10)),
+          availableFrom: daysAgo(randomBetween(0, 3)),
+          availableUntil: daysAgo(-randomBetween(10, 25)),
+          description: `Fresh ${crop.name} from Murugan Organic Farms — batch ${i + 1}`,
+          imageUrl: cropImage(crop.name),
+          status: i < 16 ? ListingStatus.ACTIVE : ListingStatus.SOLD,
+        },
+      })
+    )
+  }
+
+  const demoMediaVariants = [
+    { listing: demoListings[19], count: 4 },
+    { listing: demoListings[18], count: 3 },
+    { listing: demoListings[17], count: 3 },
+    { listing: demoListings[16], count: 2 },
+  ]
+
+  for (const { listing, count } of demoMediaVariants) {
+    const crop = crops.find((c) => c.id === listing.cropId)!
+    await applyListingMedia(listing.id, crop.name, count)
+  }
+
+  let demoSalesCreated = 0
+  for (let i = 0; i < 20; i++) {
+    const crop = crops[i % crops.length]
+    const buyer = buyers[i % buyers.length]
+    const listing = demoListings[i % demoListings.length]
+    const qty = randomBetween(80, 450)
+    const price = randomBetween(30, 58)
+    const totalAmount = Math.round(qty * price)
+
+    const purchaseRequest = await prisma.purchaseRequest.create({
+      data: {
+        listingId: listing.id,
+        buyerId: buyer.id,
+        quantity: qty,
+        offeredPrice: price,
+        deliveryType: i % 2 === 0 ? DeliveryType.DELIVERY : DeliveryType.PICKUP,
+        message: `Demo purchase batch ${i + 1}`,
+        status: PurchaseRequestStatus.ACCEPTED,
+      },
+    })
+
+    const order = await prisma.order.create({
+      data: {
+        purchaseRequestId: purchaseRequest.id,
+        listingId: listing.id,
+        buyerId: buyer.id,
+        farmerId: demoFarmer.id,
+        quantity: qty,
+        agreedPrice: price,
+        totalAmount,
+        deliveryType: purchaseRequest.deliveryType,
+        status:
+          i < 14
+            ? OrderStatus.COMPLETED
+            : i < 17
+              ? OrderStatus.IN_TRANSIT
+              : i < 19
+                ? OrderStatus.CONFIRMED
+                : OrderStatus.PENDING_CONFIRMATION,
+      },
+    })
+
+    if (order.status === OrderStatus.COMPLETED) {
+      await prisma.salesRecord.create({
+        data: {
+          orderId: order.id,
+          farmerId: demoFarmer.id,
+          cropId: crop.id,
+          buyerName: buyer.organization ?? buyer.name,
+          quantity: qty,
+          unit: crop.unit,
+          price,
+          totalAmount,
+          status: OrderStatus.COMPLETED,
+          soldAt: daysAgo(randomBetween(3, 180)),
+        },
+      })
+      demoSalesCreated++
+    }
+  }
+
+  // Pending requests on demo farmer listings
+  for (let i = 0; i < 6; i++) {
+    await prisma.purchaseRequest.create({
+      data: {
+        listingId: demoListings[i].id,
+        buyerId: buyers[(i + 2) % buyers.length].id,
+        quantity: randomBetween(50, 200),
+        offeredPrice: demoListings[i].expectedPrice + randomBetween(-3, 2),
+        deliveryType: DeliveryType.DELIVERY,
+        message: `Pending demo request ${i + 1}`,
+        status: i % 2 === 0 ? PurchaseRequestStatus.PENDING : PurchaseRequestStatus.COUNTERED,
+      },
+    })
+  }
+
+  console.log(`  ✓ demo farmer rich data (${demoListings.length} listings, ${demoSalesCreated} sales)`)
+  console.log('  ✓ demo media variants (4 / 3 / 3 / 2 images on sample listings)')
+
   console.log(`  ✓ demo scenario (Tomato listing: ${demoTomatoListing.id})`)
 
   console.log('\n✅ Seed complete!')
   console.log('\nDemo accounts (password: Demo@2026):')
-  console.log('  farmer@nammasandhai.demo  (Farmer — முருகன்)')
+  console.log('  farmer@nammasandhai.demo  (Farmer — Murugan)')
   console.log('  buyer@nammasandhai.demo   (Buyer — ABC Fresh Mart)')
   console.log('  admin@nammasandhai.demo   (Admin)')
   console.log(`\nFeatured demo listing: /marketplace/${demoTomatoListing.id}`)

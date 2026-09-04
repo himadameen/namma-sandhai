@@ -1,6 +1,7 @@
 import { Router } from 'express'
 import * as profileController from '../controllers/profile.controller'
 import * as listingController from '../controllers/listing.controller'
+import { listingMediaUpload } from '../middleware/upload.middleware'
 import * as purchaseRequestController from '../controllers/purchaseRequest.controller'
 import * as orderController from '../controllers/order.controller'
 import * as dashboardController from '../controllers/dashboard.controller'
@@ -15,6 +16,7 @@ router.get('/profile', profileController.getFarmerProfile)
 router.put('/profile', profileController.updateFarmerProfile)
 
 router.get('/listings', listingController.listFarmerListings)
+router.post('/listings/media', listingMediaUpload.array('files', 8), listingController.uploadListingMedia)
 router.post('/listings', listingController.createListing)
 router.put('/listings/:id', listingController.updateListing)
 router.delete('/listings/:id', listingController.deleteListing)

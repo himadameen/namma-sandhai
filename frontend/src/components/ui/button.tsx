@@ -4,17 +4,22 @@ import { cva, type VariantProps } from 'class-variance-authority'
 import { cn } from '@/lib/utils'
 
 const buttonVariants = cva(
-  'inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-xl text-sm font-semibold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0',
+  'group inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-xl text-sm font-semibold cursor-pointer transition-all duration-200 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50 active:scale-[0.98] [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 [&_svg]:transition-transform [&_svg]:duration-200 hover:[&_svg:last-child]:translate-x-0.5',
   {
     variants: {
       variant: {
-        default: 'bg-primary text-primary-foreground shadow-card hover:bg-primary/90 hover:shadow-card-hover',
-        secondary: 'bg-secondary text-secondary-foreground shadow-card hover:bg-secondary/90',
-        accent: 'bg-accent text-accent-foreground shadow-card hover:bg-accent/90',
-        outline: 'border-2 border-primary bg-transparent text-primary hover:bg-primary/5',
-        ghost: 'hover:bg-muted hover:text-foreground',
-        destructive: 'bg-destructive text-destructive-foreground hover:bg-destructive/90',
-        link: 'text-primary underline-offset-4 hover:underline',
+        default:
+          'bg-primary text-primary-foreground shadow-card hover:-translate-y-0.5 hover:bg-primary/90 hover:shadow-card-hover active:translate-y-0',
+        secondary:
+          'bg-secondary text-secondary-foreground shadow-card hover:-translate-y-0.5 hover:bg-secondary/90 hover:shadow-card-hover active:translate-y-0',
+        accent:
+          'bg-accent text-accent-foreground shadow-card hover:-translate-y-0.5 hover:bg-accent/90 hover:shadow-card-hover active:translate-y-0',
+        outline:
+          'border-2 border-primary bg-transparent text-primary hover:-translate-y-0.5 hover:border-primary/80 hover:bg-primary/5 active:translate-y-0',
+        ghost: 'hover:scale-[1.03] hover:bg-muted hover:text-foreground active:scale-[0.98]',
+        destructive:
+          'bg-destructive text-destructive-foreground shadow-card hover:-translate-y-0.5 hover:bg-destructive/90 hover:shadow-card-hover active:translate-y-0',
+        link: 'text-primary underline-offset-4 hover:underline active:scale-100',
       },
       size: {
         default: 'h-11 px-6 py-2',

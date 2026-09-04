@@ -2,16 +2,18 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { CheckCircle2, Loader2 } from 'lucide-react'
 import { profileApi } from '@/api/profile'
+import { PageHeader } from '@/components/dashboard/PageHeader'
+import { useLocaleText } from '@/hooks/useLocaleText'
 import { useAuth } from '@/store/auth'
 import { TN_DISTRICTS } from '@/constants/districts'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
-import { Select } from '@/components/ui/select'
+import { FormDropdownSelect } from '@/components/ui/form-dropdown-select'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -32,6 +34,7 @@ type FormValues = z.infer<typeof schema>
 export function FarmerProfilePage() {
   const { t, i18n } = useTranslation()
   const { refreshUser } = useAuth()
+  const { textClass } = useLocaleText()
   const queryClient = useQueryClient()
   const [success, setSuccess] = useState(false)
 
@@ -44,6 +47,7 @@ export function FarmerProfilePage() {
     register,
     handleSubmit,
     reset,
+    control,
     formState: { isSubmitting, isDirty },
   } = useForm<FormValues>({
     resolver: zodResolver(schema),
@@ -61,6 +65,10 @@ export function FarmerProfilePage() {
         address: profile.address ?? '',
         language: profile.language as 'en' | 'ta',
       })
+      const stored = localStorage.getItem('namma-sandhai-language')
+      if (!stored && (profile.language === 'en' || profile.language === 'ta')) {
+        void i18n.changeLanguage(profile.language)
+      }
     }
   }, [profile, reset])
 
@@ -81,6 +89,19 @@ export function FarmerProfilePage() {
     mutation.mutate(values)
   }
 
+  const districtOptions = useMemo(
+    () => TN_DISTRICTS.map((d) => ({ value: d, label: d })),
+    []
+  )
+
+  const languageOptions = useMemo(
+    () => [
+      { value: 'ta' as const, label: t('common.tamil') },
+      { value: 'en' as const, label: t('common.english') },
+    ],
+    [t]
+  )
+
   if (isLoading) {
     return (
       <div className="mx-auto max-w-2xl space-y-4">
@@ -99,18 +120,13 @@ export function FarmerProfilePage() {
   }
 
   return (
-    <div className="mx-auto max-w-2xl">
-      <div className="mb-6">
-        <h1 className="font-tamil text-2xl font-bold text-primary sm:text-3xl">
-          {t('nav.profile')}
-        </h1>
-        <p className="mt-1 text-muted-foreground">{t('profile.farmerSubtitle')}</p>
-      </div>
+    <div className="mx-auto max-w-2xl space-y-6">
+      <PageHeader title={t('nav.profile')} description={t('profile.farmerSubtitle')} />
 
       <Card>
         <CardHeader className="flex flex-row items-start justify-between gap-4">
           <div>
-            <CardTitle className="font-tamil">{profile.name}</CardTitle>
+            <CardTitle className={textClass}>{profile.name}</CardTitle>
             <CardDescription>{profile.email}</CardDescription>
           </div>
           {profile.isVerified && (
@@ -129,7 +145,7 @@ export function FarmerProfilePage() {
 
             <div>
               <label className="mb-1.5 block text-sm font-medium">{t('profile.name')}</label>
-              <Input {...register('name')} className="font-tamil" />
+              <Input {...register('name')} className={textClass} />
             </div>
 
             <div>
@@ -140,13 +156,12 @@ export function FarmerProfilePage() {
             <div className="grid gap-4 sm:grid-cols-2">
               <div>
                 <label className="mb-1.5 block text-sm font-medium">{t('profile.district')}</label>
-                <Select {...register('district')}>
-                  {TN_DISTRICTS.map((d) => (
-                    <option key={d} value={d}>
-                      {d}
-                    </option>
-                  ))}
-                </Select>
+                <FormDropdownSelect
+                  name="district"
+                  control={control}
+                  options={districtOptions}
+                  ariaLabel={t('profile.district')}
+                />
               </div>
               <div>
                 <label className="mb-1.5 block text-sm font-medium">{t('profile.state')}</label>
@@ -171,10 +186,12 @@ export function FarmerProfilePage() {
 
             <div>
               <label className="mb-1.5 block text-sm font-medium">{t('common.language')}</label>
-              <Select {...register('language')}>
-                <option value="ta">{t('common.tamil')}</option>
-                <option value="en">{t('common.english')}</option>
-              </Select>
+              <FormDropdownSelect
+                name="language"
+                control={control}
+                options={languageOptions}
+                ariaLabel={t('common.language')}
+              />
             </div>
 
             {mutation.error && (

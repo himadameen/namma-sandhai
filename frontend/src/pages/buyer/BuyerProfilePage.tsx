@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { CheckCircle2, Loader2 } from 'lucide-react'
 import { profileApi } from '@/api/profile'
@@ -11,7 +11,7 @@ import { TN_DISTRICTS, BUYER_TYPES } from '@/constants/districts'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
-import { Select } from '@/components/ui/select'
+import { FormDropdownSelect } from '@/components/ui/form-dropdown-select'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -44,6 +44,7 @@ export function BuyerProfilePage() {
     register,
     handleSubmit,
     reset,
+    control,
     formState: { isSubmitting, isDirty },
   } = useForm<FormValues>({
     resolver: zodResolver(schema),
@@ -80,6 +81,28 @@ export function BuyerProfilePage() {
   const onSubmit = (values: FormValues) => {
     mutation.mutate(values)
   }
+
+  const buyerTypeOptions = useMemo(
+    () =>
+      BUYER_TYPES.map((type) => ({
+        value: type.value,
+        label: t(`buyerTypes.${type.value}`),
+      })),
+    [t]
+  )
+
+  const districtOptions = useMemo(
+    () => TN_DISTRICTS.map((d) => ({ value: d, label: d })),
+    []
+  )
+
+  const languageOptions = useMemo(
+    () => [
+      { value: 'en' as const, label: t('common.english') },
+      { value: 'ta' as const, label: t('common.tamil') },
+    ],
+    [t]
+  )
 
   if (isLoading) {
     return (
@@ -142,25 +165,23 @@ export function BuyerProfilePage() {
 
             <div>
               <label className="mb-1.5 block text-sm font-medium">{t('profile.buyerType')}</label>
-              <Select {...register('buyerType')}>
-                {BUYER_TYPES.map((type) => (
-                  <option key={type.value} value={type.value}>
-                    {t(`buyerTypes.${type.value}`)}
-                  </option>
-                ))}
-              </Select>
+              <FormDropdownSelect
+                name="buyerType"
+                control={control}
+                options={buyerTypeOptions}
+                ariaLabel={t('profile.buyerType')}
+              />
             </div>
 
             <div className="grid gap-4 sm:grid-cols-2">
               <div>
                 <label className="mb-1.5 block text-sm font-medium">{t('profile.district')}</label>
-                <Select {...register('district')}>
-                  {TN_DISTRICTS.map((d) => (
-                    <option key={d} value={d}>
-                      {d}
-                    </option>
-                  ))}
-                </Select>
+                <FormDropdownSelect
+                  name="district"
+                  control={control}
+                  options={districtOptions}
+                  ariaLabel={t('profile.district')}
+                />
               </div>
               <div>
                 <label className="mb-1.5 block text-sm font-medium">{t('profile.state')}</label>
@@ -175,10 +196,12 @@ export function BuyerProfilePage() {
 
             <div>
               <label className="mb-1.5 block text-sm font-medium">{t('common.language')}</label>
-              <Select {...register('language')}>
-                <option value="en">{t('common.english')}</option>
-                <option value="ta">{t('common.tamil')}</option>
-              </Select>
+              <FormDropdownSelect
+                name="language"
+                control={control}
+                options={languageOptions}
+                ariaLabel={t('common.language')}
+              />
             </div>
 
             {mutation.error && (

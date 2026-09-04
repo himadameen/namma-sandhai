@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -10,7 +10,7 @@ import type { ListingDetail } from '@/api/listings'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
-import { Select } from '@/components/ui/select'
+import { FormDropdownSelect } from '@/components/ui/form-dropdown-select'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 
 const schema = z.object({
@@ -36,6 +36,7 @@ export function PurchaseRequestDialog({ listing, onClose, onSuccess }: PurchaseR
   const {
     register,
     handleSubmit,
+    control,
     formState: { isSubmitting },
   } = useForm<FormValues>({
     resolver: zodResolver(schema),
@@ -61,6 +62,14 @@ export function PurchaseRequestDialog({ listing, onClose, onSuccess }: PurchaseR
     setError('')
     mutation.mutate({ listingId: listing.id, ...values })
   }
+
+  const deliveryTypeOptions = useMemo(
+    () => [
+      { value: 'DELIVERY' as const, label: t('requests.delivery') },
+      { value: 'PICKUP' as const, label: t('requests.pickup') },
+    ],
+    [t]
+  )
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 p-4 sm:items-center">
@@ -92,10 +101,12 @@ export function PurchaseRequestDialog({ listing, onClose, onSuccess }: PurchaseR
             </div>
             <div>
               <label className="mb-1.5 block text-sm font-medium">{t('requests.deliveryType')}</label>
-              <Select {...register('deliveryType')}>
-                <option value="DELIVERY">{t('requests.delivery')}</option>
-                <option value="PICKUP">{t('requests.pickup')}</option>
-              </Select>
+              <FormDropdownSelect
+                name="deliveryType"
+                control={control}
+                options={deliveryTypeOptions}
+                ariaLabel={t('requests.deliveryType')}
+              />
             </div>
             <div>
               <label className="mb-1.5 block text-sm font-medium">{t('requests.message')}</label>

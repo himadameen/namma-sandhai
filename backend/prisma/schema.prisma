@@ -176,6 +176,7 @@ model Listing {
   availableUntil DateTime?
   description    String?
   imageUrl       String?
+  media          Json?
   status         ListingStatus @default(ACTIVE)
   createdAt      DateTime      @default(now())
   updatedAt      DateTime      @updatedAt

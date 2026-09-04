@@ -1,6 +1,24 @@
 import { z } from 'zod'
 import { TN_DISTRICTS } from './profile.validator'
 
+export const listingMediaItemSchema = z.object({
+  id: z.string().min(1),
+  url: z.string().min(1),
+  type: z.enum(['image', 'video']),
+  name: z.string().optional(),
+})
+
+export type ListingMediaInput = z.infer<typeof listingMediaItemSchema>
+
+export const farmerListingsQuerySchema = z.object({
+  page: z.coerce.number().min(1).optional().default(1),
+  limit: z.coerce.number().min(1).max(50).optional().default(10),
+  status: z.enum(['ACTIVE', 'SOLD', 'EXPIRED']).optional(),
+  search: z.string().optional(),
+})
+
+export type FarmerListingsQuery = z.infer<typeof farmerListingsQuerySchema>
+
 export const marketplaceQuerySchema = z.object({
   search: z.string().optional(),
   crop: z.string().optional(),
@@ -27,6 +45,7 @@ export const createListingSchema = z.object({
   availableUntil: z.string().optional(),
   description: z.string().optional(),
   imageUrl: z.string().url().optional().or(z.literal('')),
+  media: z.array(listingMediaItemSchema).max(8).optional(),
 })
 
 export const updateListingSchema = createListingSchema.partial().extend({

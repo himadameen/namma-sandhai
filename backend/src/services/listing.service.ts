@@ -3,9 +3,12 @@ import prisma from '../config/database'
 import { AppError } from '../middleware/errorHandler'
 import type {
   CreateListingInput,
+  FarmerListingsQuery,
+  ListingMediaInput,
   MarketplaceQuery,
   UpdateListingInput,
 } from '../validators/listing.validator'
+import { normalizeMediaInput, parseListingMedia, primaryImageUrl } from '../utils/listingMedia'
 
 function parseOptionalDate(value?: string): Date | undefined {
   if (!value) return undefined
@@ -27,12 +30,15 @@ function formatListing(listing: {
   availableUntil: Date | null
   description: string | null
   imageUrl: string | null
+  media: unknown
   status: ListingStatus
   createdAt: Date
   updatedAt: Date
   crop: { id: string; name: string; nameTamil: string; category: string; unit: string }
   farmer: { id: string; name: string; isVerified: boolean; district: string }
 }) {
+  const media = parseListingMedia(listing.media, listing.imageUrl)
+
   return {
     id: listing.id,
     variety: listing.variety,
@@ -45,7 +51,8 @@ function formatListing(listing: {
     availableFrom: listing.availableFrom,
     availableUntil: listing.availableUntil,
     description: listing.description,
-    imageUrl: listing.imageUrl,
+    imageUrl: primaryImageUrl(media, listing.imageUrl),
+    media,
     status: listing.status,
     createdAt: listing.createdAt,
     updatedAt: listing.updatedAt,
@@ -155,23 +162,66 @@ async function getFarmerByUserId(userId: string) {
   return farmer
 }
 
-export async function getFarmerListings(userId: string) {
+export async function getFarmerListings(userId: string, query: FarmerListingsQuery) {
   const farmer = await getFarmerByUserId(userId)
-  const listings = await prisma.listing.findMany({
-    where: { farmerId: farmer.id },
-    include: {
-      crop: { select: { id: true, name: true, nameTamil: true, category: true, unit: true } },
-      farmer: { select: { id: true, name: true, isVerified: true, district: true } },
+
+  const where: Prisma.ListingWhereInput = { farmerId: farmer.id }
+
+  if (query.status) {
+    where.status = query.status
+  }
+
+  if (query.search) {
+    where.OR = [
+      { crop: { name: { contains: query.search, mode: 'insensitive' } } },
+      { crop: { nameTamil: { contains: query.search, mode: 'insensitive' } } },
+      { variety: { contains: query.search, mode: 'insensitive' } },
+      { district: { contains: query.search, mode: 'insensitive' } },
+    ]
+  }
+
+  const skip = (query.page - 1) * query.limit
+
+  const [listings, total, activeCount, soldCount, expiredCount] = await Promise.all([
+    prisma.listing.findMany({
+      where,
+      include: {
+        crop: { select: { id: true, name: true, nameTamil: true, category: true, unit: true } },
+        farmer: { select: { id: true, name: true, isVerified: true, district: true } },
+      },
+      orderBy: { createdAt: 'desc' },
+      skip,
+      take: query.limit,
+    }),
+    prisma.listing.count({ where }),
+    prisma.listing.count({ where: { farmerId: farmer.id, status: ListingStatus.ACTIVE } }),
+    prisma.listing.count({ where: { farmerId: farmer.id, status: ListingStatus.SOLD } }),
+    prisma.listing.count({ where: { farmerId: farmer.id, status: ListingStatus.EXPIRED } }),
+  ])
+
+  return {
+    listings: listings.map(formatListing),
+    pagination: {
+      page: query.page,
+      limit: query.limit,
+      total,
+      totalPages: Math.max(1, Math.ceil(total / query.limit)),
     },
-    orderBy: { createdAt: 'desc' },
-  })
-  return listings.map(formatListing)
+    summary: {
+      total: activeCount + soldCount + expiredCount,
+      active: activeCount,
+      sold: soldCount,
+      expired: expiredCount,
+    },
+  }
 }
 
 export async function createListing(userId: string, input: CreateListingInput) {
   const farmer = await getFarmerByUserId(userId)
   const crop = await prisma.crop.findUnique({ where: { id: input.cropId } })
   if (!crop) throw new AppError(404, 'Crop not found')
+
+  const { media, imageUrl } = normalizeMediaInput(input.media as ListingMediaInput[] | undefined, input.imageUrl)
 
   const listing = await prisma.listing.create({
     data: {
@@ -187,7 +237,8 @@ export async function createListing(userId: string, input: CreateListingInput) {
       availableFrom: parseOptionalDate(input.availableFrom) ?? new Date(),
       availableUntil: parseOptionalDate(input.availableUntil),
       description: input.description,
-      imageUrl: input.imageUrl || getDefaultCropImage(crop.name),
+      imageUrl,
+      media: media.length > 0 ? media : undefined,
       status: ListingStatus.ACTIVE,
     },
     include: {
@@ -207,6 +258,11 @@ export async function updateListing(userId: string, listingId: string, input: Up
     throw new AppError(403, 'You can only modify your own listings')
   }
 
+  const mediaPayload =
+    input.media !== undefined
+      ? normalizeMediaInput(input.media as ListingMediaInput[] | undefined, input.imageUrl)
+      : null
+
   const listing = await prisma.listing.update({
     where: { id: listingId },
     data: {
@@ -221,7 +277,14 @@ export async function updateListing(userId: string, listingId: string, input: Up
       availableFrom: input.availableFrom !== undefined ? parseOptionalDate(input.availableFrom) : undefined,
       availableUntil: input.availableUntil !== undefined ? parseOptionalDate(input.availableUntil) : undefined,
       description: input.description !== undefined ? input.description : undefined,
-      imageUrl: input.imageUrl !== undefined ? (input.imageUrl || getDefaultCropImage('')) : undefined,
+      ...(mediaPayload
+        ? {
+            media: mediaPayload.media.length > 0 ? mediaPayload.media : [],
+            imageUrl: mediaPayload.imageUrl,
+          }
+        : input.imageUrl !== undefined
+          ? { imageUrl: input.imageUrl || null }
+          : {}),
       status: input.status,
     },
     include: {
@@ -243,15 +306,4 @@ export async function deleteListing(userId: string, listingId: string) {
 
   await prisma.listing.delete({ where: { id: listingId } })
   return { deleted: true }
-}
-
-function getDefaultCropImage(cropName: string): string {
-  const images: Record<string, string> = {
-    Tomato: 'https://images.unsplash.com/photo-1592924351178-8fd0bb41a4a9?w=800&q=80',
-    Onion: 'https://images.unsplash.com/photo-1518977676601-b53f82aba655?w=800&q=80',
-    Brinjal: 'https://images.unsplash.com/photo-1628773822503-930a7ea78479?w=800&q=80',
-    Mango: 'https://images.unsplash.com/photo-1553279768-865021a0c088?w=800&q=80',
-    Banana: 'https://images.unsplash.com/photo-1571771894821-ce9a6d2c2d65?w=800&q=80',
-  }
-  return images[cropName] ?? 'https://images.unsplash.com/photo-1625246333195-78d9c38ad449?w=800&q=80'
 }

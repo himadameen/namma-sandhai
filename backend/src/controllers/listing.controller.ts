@@ -1,7 +1,9 @@
 import { Request, Response, NextFunction } from 'express'
+import { randomUUID } from 'crypto'
 import * as listingService from '../services/listing.service'
 import {
   marketplaceQuerySchema,
+  farmerListingsQuerySchema,
   createListingSchema,
   updateListingSchema,
 } from '../validators/listing.validator'
@@ -31,8 +33,28 @@ export async function getListing(req: Request, res: Response, next: NextFunction
 export async function listFarmerListings(req: Request, res: Response, next: NextFunction) {
   try {
     if (!req.user) throw new AppError(401, 'Authentication required')
-    const listings = await listingService.getFarmerListings(req.user.userId)
-    res.json(successResponse(listings))
+    const query = farmerListingsQuerySchema.parse(req.query)
+    const result = await listingService.getFarmerListings(req.user.userId, query)
+    res.json(successResponse(result))
+  } catch (error) {
+    next(error)
+  }
+}
+
+export async function uploadListingMedia(req: Request, res: Response, next: NextFunction) {
+  try {
+    if (!req.user) throw new AppError(401, 'Authentication required')
+    const files = (req.files as Express.Multer.File[] | undefined) ?? []
+    if (files.length === 0) throw new AppError(400, 'No files uploaded')
+
+    const media = files.map((file) => ({
+      id: randomUUID(),
+      url: `/uploads/listings/${file.filename}`,
+      type: file.mimetype.startsWith('video/') ? ('video' as const) : ('image' as const),
+      name: file.originalname,
+    }))
+
+    res.json(successResponse({ media }))
   } catch (error) {
     next(error)
   }

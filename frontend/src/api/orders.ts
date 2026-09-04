@@ -50,10 +50,45 @@ export interface Order {
   salesRecord: { id: string; soldAt: string } | null
 }
 
+export interface FarmerOrdersResponse {
+  orders: Order[]
+  pagination: {
+    page: number
+    limit: number
+    total: number
+    totalPages: number
+  }
+  summary: {
+    total: number
+    active: number
+    pendingConfirmation: number
+    confirmed: number
+    inTransit: number
+    completed: number
+    cancelled: number
+  }
+}
+
 export type OrderStatusUpdate = 'CONFIRMED' | 'IN_TRANSIT' | 'COMPLETED' | 'CANCELLED'
 
+function buildQuery(params: Record<string, string | number | boolean | undefined>): string {
+  const search = new URLSearchParams()
+  Object.entries(params).forEach(([key, value]) => {
+    if (value !== undefined && value !== '') search.set(key, String(value))
+  })
+  const qs = search.toString()
+  return qs ? `?${qs}` : ''
+}
+
 export const ordersApi = {
-  getFarmerOrders: () => apiClient<Order[]>('/farmers/orders'),
+  getFarmerOrders: (params?: {
+    page?: number
+    limit?: number
+    status?: OrderStatus
+    cropId?: string
+    deliveryType?: DeliveryType
+    search?: string
+  }) => apiClient<FarmerOrdersResponse>(`/farmers/orders${buildQuery(params ?? {})}`),
 
   getBuyerOrders: () => apiClient<Order[]>('/buyers/orders'),
 

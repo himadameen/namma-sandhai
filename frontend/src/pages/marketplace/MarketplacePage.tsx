@@ -7,7 +7,7 @@ import { marketApi } from '@/api/market'
 import { TN_DISTRICTS } from '@/constants/districts'
 import { ListingCard } from '@/components/marketplace/ListingCard'
 import { Input } from '@/components/ui/input'
-import { Select } from '@/components/ui/select'
+import { DropdownSelect } from '@/components/ui/dropdown-select'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 
@@ -61,6 +61,25 @@ export function MarketplacePage() {
     setApplied({ search, cropId, district, minPrice, maxPrice, minQuantity, availableOnly })
   }
 
+  const cropOptions = useMemo(
+    () => [
+      { value: '', label: t('listings.allCrops') },
+      ...(crops?.map((crop) => ({
+        value: crop.id,
+        label: isTamil ? crop.nameTamil : crop.name,
+      })) ?? []),
+    ],
+    [crops, isTamil, t]
+  )
+
+  const districtOptions = useMemo(
+    () => [
+      { value: '', label: t('listings.allDistricts') },
+      ...TN_DISTRICTS.map((d) => ({ value: d, label: d })),
+    ],
+    [t]
+  )
+
   return (
     <div className="mx-auto max-w-7xl space-y-8 px-0 py-2 sm:px-0">
       <div>
@@ -85,25 +104,25 @@ export function MarketplacePage() {
           </div>
           <div>
             <label className="mb-1.5 block text-sm font-medium">{t('listings.filterCrop')}</label>
-            <Select value={cropId} onChange={(e) => setCropId(e.target.value)}>
-              <option value="">{t('listings.allCrops')}</option>
-              {crops?.map((crop) => (
-                <option key={crop.id} value={crop.id}>
-                  {isTamil ? crop.nameTamil : crop.name}
-                </option>
-              ))}
-            </Select>
+            <DropdownSelect
+              value={cropId}
+              options={cropOptions}
+              onChange={setCropId}
+              ariaLabel={t('listings.filterCrop')}
+              fullWidth
+              align="left"
+            />
           </div>
           <div>
             <label className="mb-1.5 block text-sm font-medium">{t('profile.district')}</label>
-            <Select value={district} onChange={(e) => setDistrict(e.target.value)}>
-              <option value="">{t('listings.allDistricts')}</option>
-              {TN_DISTRICTS.map((d) => (
-                <option key={d} value={d}>
-                  {d}
-                </option>
-              ))}
-            </Select>
+            <DropdownSelect
+              value={district}
+              options={districtOptions}
+              onChange={setDistrict}
+              ariaLabel={t('profile.district')}
+              fullWidth
+              align="left"
+            />
           </div>
           <div>
             <label className="mb-1.5 block text-sm font-medium">{t('listings.minPrice')}</label>

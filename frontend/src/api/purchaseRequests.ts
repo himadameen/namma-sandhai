@@ -32,12 +32,39 @@ export interface PurchaseRequest {
   order: { id: string; status: string } | null
 }
 
+export interface FarmerPurchaseRequestsResponse {
+  requests: PurchaseRequest[]
+  pagination: {
+    page: number
+    limit: number
+    total: number
+    totalPages: number
+  }
+  summary: {
+    total: number
+    pending: number
+    accepted: number
+    rejected: number
+    countered: number
+    actionRequired: number
+  }
+}
+
 export interface CreatePurchaseRequestPayload {
   listingId: string
   quantity: number
   offeredPrice: number
   deliveryType: DeliveryType
   message?: string
+}
+
+function buildQuery(params: Record<string, string | number | boolean | undefined>): string {
+  const search = new URLSearchParams()
+  Object.entries(params).forEach(([key, value]) => {
+    if (value !== undefined && value !== '') search.set(key, String(value))
+  })
+  const qs = search.toString()
+  return qs ? `?${qs}` : ''
 }
 
 export const purchaseRequestsApi = {
@@ -49,7 +76,17 @@ export const purchaseRequestsApi = {
 
   getBuyerRequests: () => apiClient<PurchaseRequest[]>('/buyers/purchase-requests'),
 
-  getFarmerRequests: () => apiClient<PurchaseRequest[]>('/farmers/purchase-requests'),
+  getFarmerRequests: (params?: {
+    page?: number
+    limit?: number
+    status?: PurchaseRequestStatus
+    cropId?: string
+    deliveryType?: DeliveryType
+    search?: string
+  }) =>
+    apiClient<FarmerPurchaseRequestsResponse>(
+      `/farmers/purchase-requests${buildQuery(params ?? {})}`
+    ),
 
   accept: (id: string) =>
     apiClient<PurchaseRequest>(`/farmers/purchase-requests/${id}/accept`, { method: 'POST' }),

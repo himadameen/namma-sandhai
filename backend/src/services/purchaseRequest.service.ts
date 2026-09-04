@@ -2,6 +2,7 @@ import {
   DeliveryType,
   NotificationType,
   OrderStatus,
+  Prisma,
   PurchaseRequestStatus,
 } from '@prisma/client'
 import prisma from '../config/database'
@@ -9,6 +10,7 @@ import { AppError } from '../middleware/errorHandler'
 import type {
   CounterOfferInput,
   CreatePurchaseRequestInput,
+  FarmerPurchaseRequestsQuery,
 } from '../validators/purchaseRequest.validator'
 
 function formatRequest(req: Awaited<ReturnType<typeof fetchRequestById>>) {
@@ -150,23 +152,86 @@ export async function getBuyerPurchaseRequests(userId: string) {
   return requests.map((r) => formatRequest(r)!)
 }
 
-export async function getFarmerPurchaseRequests(userId: string) {
+export async function getFarmerPurchaseRequests(userId: string, query: FarmerPurchaseRequestsQuery) {
   const farmer = await getFarmerByUserId(userId)
-  const requests = await prisma.purchaseRequest.findMany({
-    where: { listing: { farmerId: farmer.id } },
-    include: {
-      buyer: { select: { id: true, name: true, organization: true, district: true } },
-      listing: {
-        include: {
-          crop: { select: { id: true, name: true, nameTamil: true, unit: true } },
-          farmer: { select: { id: true, name: true, userId: true } },
-        },
+
+  const listingFilter: Prisma.ListingWhereInput = { farmerId: farmer.id }
+  if (query.cropId) listingFilter.cropId = query.cropId
+
+  const where: Prisma.PurchaseRequestWhereInput = {
+    listing: listingFilter,
+  }
+
+  if (query.status) where.status = query.status
+  if (query.deliveryType) where.deliveryType = query.deliveryType
+
+  if (query.search) {
+    where.AND = [
+      {
+        OR: [
+          { buyer: { name: { contains: query.search, mode: 'insensitive' } } },
+          { buyer: { organization: { contains: query.search, mode: 'insensitive' } } },
+          { buyer: { district: { contains: query.search, mode: 'insensitive' } } },
+          { listing: { crop: { name: { contains: query.search, mode: 'insensitive' } } } },
+          { listing: { crop: { nameTamil: { contains: query.search, mode: 'insensitive' } } } },
+        ],
       },
-      order: { select: { id: true, status: true } },
+    ]
+  }
+
+  const skip = (query.page - 1) * query.limit
+  const farmerListingWhere = { listing: { farmerId: farmer.id } }
+
+  const [requests, total, pendingCount, acceptedCount, rejectedCount, counteredCount] =
+    await Promise.all([
+      prisma.purchaseRequest.findMany({
+        where,
+        include: {
+          buyer: { select: { id: true, name: true, organization: true, district: true } },
+          listing: {
+            include: {
+              crop: { select: { id: true, name: true, nameTamil: true, unit: true } },
+              farmer: { select: { id: true, name: true, userId: true } },
+            },
+          },
+          order: { select: { id: true, status: true } },
+        },
+        orderBy: { createdAt: 'desc' },
+        skip,
+        take: query.limit,
+      }),
+      prisma.purchaseRequest.count({ where }),
+      prisma.purchaseRequest.count({
+        where: { ...farmerListingWhere, status: PurchaseRequestStatus.PENDING },
+      }),
+      prisma.purchaseRequest.count({
+        where: { ...farmerListingWhere, status: PurchaseRequestStatus.ACCEPTED },
+      }),
+      prisma.purchaseRequest.count({
+        where: { ...farmerListingWhere, status: PurchaseRequestStatus.REJECTED },
+      }),
+      prisma.purchaseRequest.count({
+        where: { ...farmerListingWhere, status: PurchaseRequestStatus.COUNTERED },
+      }),
+    ])
+
+  return {
+    requests: requests.map((r) => formatRequest(r)!),
+    pagination: {
+      page: query.page,
+      limit: query.limit,
+      total,
+      totalPages: Math.max(1, Math.ceil(total / query.limit)),
     },
-    orderBy: { createdAt: 'desc' },
-  })
-  return requests.map((r) => formatRequest(r)!)
+    summary: {
+      total: pendingCount + acceptedCount + rejectedCount + counteredCount,
+      pending: pendingCount,
+      accepted: acceptedCount,
+      rejected: rejectedCount,
+      countered: counteredCount,
+      actionRequired: pendingCount + counteredCount,
+    },
+  }
 }
 
 export async function acceptPurchaseRequest(userId: string, requestId: string) {

@@ -4,6 +4,8 @@ import { MapPin, ArrowRight, CheckCircle2 } from 'lucide-react'
 import type { Listing } from '@/api/listings'
 import { formatCurrency } from '@/lib/utils'
 import { getCropEmoji } from '@/utils/listings'
+import { listingMediaItems } from '@/utils/media'
+import { ListingMediaCover } from '@/components/listings/ListingMediaCover'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -16,14 +18,16 @@ export function ListingCard({ listing }: ListingCardProps) {
   const { t, i18n } = useTranslation()
   const isTamil = i18n.language?.startsWith('ta')
   const cropName = isTamil ? listing.crop.nameTamil : listing.crop.name
+  const media = listingMediaItems(listing)
 
   return (
     <Card className="group overflow-hidden transition-shadow hover:shadow-card-hover">
       <div className="aspect-[4/3] overflow-hidden bg-muted">
-        <img
-          src={listing.imageUrl ?? 'https://images.unsplash.com/photo-1625246333195-78d9c38ad449?w=400&q=80'}
+        <ListingMediaCover
+          media={media}
           alt={cropName}
-          className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+          placeholderLabel={t('listings.mediaPlaceholder')}
+          className="h-full w-full transition-transform duration-300 group-hover:scale-105"
         />
       </div>
       <CardContent className="p-5">
