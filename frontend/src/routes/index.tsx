@@ -18,6 +18,7 @@ import { BuyerOrdersPage } from '@/pages/buyer/BuyerOrdersPage'
 import { FarmerDashboardPage } from '@/pages/farmer/FarmerDashboardPage'
 import { FarmerSalesPage } from '@/pages/farmer/FarmerSalesPage'
 import { BuyerDashboardPage } from '@/pages/buyer/BuyerDashboardPage'
+import { BuyerMarketplacePage } from '@/pages/buyer/BuyerMarketplacePage'
 import { MarketPricesPage } from '@/pages/farmer/MarketPricesPage'
 
 export const router = createBrowserRouter([
@@ -64,6 +65,8 @@ export const router = createBrowserRouter([
         ),
         children: [
           { path: '/buyer/dashboard', element: <BuyerDashboardPage /> },
+          { path: '/buyer/marketplace', element: <BuyerMarketplacePage /> },
+          { path: '/buyer/marketplace/:id', element: <ListingDetailPage /> },
           { path: '/buyer/orders', element: <BuyerOrdersPage /> },
           { path: '/buyer/requests', element: <BuyerRequestsPage /> },
           { path: '/buyer/profile', element: <BuyerProfilePage /> },

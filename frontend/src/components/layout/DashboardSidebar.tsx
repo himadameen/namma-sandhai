@@ -39,7 +39,7 @@ export const farmerNavItems: DashboardNavItem[] = [
 
 export const buyerNavItems: DashboardNavItem[] = [
   { href: '/buyer/dashboard', labelKey: 'nav.dashboard', icon: LayoutDashboard },
-  { href: '/marketplace', labelKey: 'nav.marketplace', icon: Store },
+  { href: '/buyer/marketplace', labelKey: 'nav.marketplace', icon: Store },
   { href: '/buyer/requests', labelKey: 'nav.purchaseRequests', icon: Inbox },
   { href: '/buyer/orders', labelKey: 'nav.orders', icon: Package },
   { href: '/buyer/profile', labelKey: 'nav.profile', icon: User },

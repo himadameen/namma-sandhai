@@ -1,8 +1,8 @@
 import { useState } from 'react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { Link, Navigate, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
-import { ArrowLeft, CheckCircle2, MapPin, Calendar } from 'lucide-react'
+import { ArrowLeft, CheckCircle2, MapPin, Calendar, User, TrendingUp, TrendingDown, Minus } from 'lucide-react'
 import { listingsApi } from '@/api/listings'
 import { useAuth } from '@/store/auth'
 import { formatCurrency } from '@/lib/utils'
@@ -14,9 +14,11 @@ import { Badge } from '@/components/ui/badge'
 import { Card, CardContent } from '@/components/ui/card'
 import { PurchaseRequestDialog } from '@/components/requests/PurchaseRequestDialog'
 import { Skeleton } from '@/components/ui/skeleton'
+import { cn } from '@/lib/utils'
 
 export function ListingDetailPage() {
   const { id } = useParams<{ id: string }>()
+  const location = useLocation()
   const navigate = useNavigate()
   const { t, i18n } = useTranslation()
   const { user, isAuthenticated } = useAuth()
@@ -24,6 +26,13 @@ export function ListingDetailPage() {
   const locale = isTamil ? 'ta-IN' : 'en-IN'
   const [showRequestForm, setShowRequestForm] = useState(false)
   const [requestSent, setRequestSent] = useState(false)
+
+  const isBuyerShell = location.pathname.startsWith('/buyer/marketplace')
+  const marketplaceBase = isBuyerShell ? '/buyer/marketplace' : '/marketplace'
+
+  if (isAuthenticated && user?.role === 'BUYER' && !isBuyerShell && id) {
+    return <Navigate to={`/buyer/marketplace/${id}`} replace />
+  }
 
   const { data: listing, isLoading, error } = useQuery({
     queryKey: ['listing', id],
@@ -33,20 +42,20 @@ export function ListingDetailPage() {
 
   if (isLoading) {
     return (
-      <div className="mx-auto max-w-4xl space-y-6">
+      <div className={cn('space-y-6', !isBuyerShell && 'mx-auto max-w-4xl')}>
         <Skeleton className="h-8 w-32" />
-        <Skeleton className="aspect-video w-full" />
-        <Skeleton className="h-48 w-full" />
+        <Skeleton className="aspect-video w-full rounded-2xl" />
+        <Skeleton className="h-48 w-full rounded-2xl" />
       </div>
     )
   }
 
   if (error || !listing) {
     return (
-      <div className="mx-auto max-w-4xl py-16 text-center">
+      <div className={cn('py-16 text-center', !isBuyerShell && 'mx-auto max-w-4xl')}>
         <p className="text-destructive">{t('common.error')}</p>
         <Button className="mt-4" variant="outline" asChild>
-          <Link to="/marketplace">{t('listings.backToMarketplace')}</Link>
+          <Link to={marketplaceBase}>{t('listings.backToMarketplace')}</Link>
         </Button>
       </div>
     )
@@ -55,11 +64,14 @@ export function ListingDetailPage() {
   const cropName = isTamil ? listing.crop.nameTamil : listing.crop.name
   const isBuyer = isAuthenticated && user?.role === 'BUYER'
   const media = listingMediaItems(listing)
+  const priceDiff = listing.marketAverage
+    ? listing.expectedPrice - listing.marketAverage.averagePrice
+    : null
 
   return (
-    <div className="mx-auto max-w-4xl space-y-6 pb-12">
+    <div className={cn('space-y-6 pb-8', !isBuyerShell && 'mx-auto max-w-4xl pb-12')}>
       <Button variant="ghost" size="sm" asChild>
-        <Link to="/marketplace">
+        <Link to={marketplaceBase}>
           <ArrowLeft className="h-4 w-4" />
           {t('listings.backToMarketplace')}
         </Link>
@@ -90,7 +102,7 @@ export function ListingDetailPage() {
           </div>
 
           <div className="mt-6 grid gap-4 sm:grid-cols-3">
-            <Card>
+            <Card className="border-border/80">
               <CardContent className="pt-5">
                 <p className="text-sm text-muted-foreground">{t('listings.quantity')}</p>
                 <p className="text-xl font-bold">
@@ -107,12 +119,35 @@ export function ListingDetailPage() {
               </CardContent>
             </Card>
             {listing.marketAverage && (
-              <Card>
+              <Card className="border-border/80">
                 <CardContent className="pt-5">
                   <p className="text-sm text-muted-foreground">{t('listings.marketAverage')}</p>
                   <p className="text-xl font-bold">
                     {formatCurrency(listing.marketAverage.averagePrice)}/{listing.marketAverage.unit}
                   </p>
+                  {priceDiff !== null && priceDiff !== 0 && (
+                    <p
+                      className={cn(
+                        'mt-1 flex items-center gap-1 text-xs font-medium',
+                        priceDiff > 0 ? 'text-secondary' : 'text-accent-foreground'
+                      )}
+                    >
+                      {priceDiff > 0 ? (
+                        <TrendingUp className="h-3 w-3" />
+                      ) : (
+                        <TrendingDown className="h-3 w-3" />
+                      )}
+                      {priceDiff > 0
+                        ? t('requests.priceAboveListing', { amount: formatCurrency(priceDiff) })
+                        : t('requests.priceBelowListing', { amount: formatCurrency(Math.abs(priceDiff)) })}
+                    </p>
+                  )}
+                  {priceDiff === 0 && (
+                    <p className="mt-1 flex items-center gap-1 text-xs text-muted-foreground">
+                      <Minus className="h-3 w-3" />
+                      {t('requests.priceMatchesListing')}
+                    </p>
+                  )}
                 </CardContent>
               </Card>
             )}
@@ -120,18 +155,18 @@ export function ListingDetailPage() {
 
           <div className="mt-6 grid gap-3 text-sm sm:grid-cols-2">
             <div className="flex items-center gap-2 text-muted-foreground">
-              <MapPin className="h-4 w-4" />
+              <MapPin className="h-4 w-4 shrink-0" />
               {listing.district}, {listing.state}
             </div>
             {listing.harvestDate && (
               <div className="flex items-center gap-2 text-muted-foreground">
-                <Calendar className="h-4 w-4" />
+                <Calendar className="h-4 w-4 shrink-0" />
                 {t('listings.harvestDate')}: {formatDate(listing.harvestDate, locale)}
               </div>
             )}
             {(listing.availableFrom || listing.availableUntil) && (
               <div className="flex items-center gap-2 text-muted-foreground sm:col-span-2">
-                <Calendar className="h-4 w-4" />
+                <Calendar className="h-4 w-4 shrink-0" />
                 {t('listings.availability')}: {formatDate(listing.availableFrom, locale)} —{' '}
                 {formatDate(listing.availableUntil, locale)}
               </div>
@@ -142,11 +177,14 @@ export function ListingDetailPage() {
             <p className="mt-6 leading-relaxed text-muted-foreground">{listing.description}</p>
           )}
 
-          <Card className="mt-8">
+          <Card className="mt-8 border-primary/15 bg-gradient-to-br from-primary/[0.04] to-transparent">
             <CardContent className="flex flex-wrap items-center justify-between gap-4 pt-6">
               <div>
-                <p className="font-tamil font-semibold">👨‍🌾 {listing.farmer.name}</p>
-                <p className="text-sm text-muted-foreground">{listing.farmer.district}</p>
+                <p className="inline-flex items-center gap-2 font-tamil font-semibold">
+                  <User className="h-4 w-4 text-primary" />
+                  {listing.farmer.name}
+                </p>
+                <p className="mt-1 text-sm text-muted-foreground">{listing.farmer.district}</p>
                 {listing.farmer.isVerified && (
                   <span className="mt-1 inline-flex items-center gap-1 text-sm text-success">
                     <CheckCircle2 className="h-4 w-4" />
@@ -156,18 +194,14 @@ export function ListingDetailPage() {
               </div>
 
               {isBuyer ? (
-                <>
+                <div className="flex flex-col items-stretch gap-2 sm:items-end">
                   {requestSent && (
-                    <p className="mb-2 text-sm text-success">{t('requests.sentSuccess')}</p>
+                    <p className="text-sm text-success">{t('requests.sentSuccess')}</p>
                   )}
-                  <Button
-                    size="lg"
-                    className="font-tamil"
-                    onClick={() => setShowRequestForm(true)}
-                  >
+                  <Button size="lg" className="font-tamil" onClick={() => setShowRequestForm(true)}>
                     {t('common.sendPurchaseRequest')}
                   </Button>
-                </>
+                </div>
               ) : !isAuthenticated ? (
                 <Button size="lg" className="font-tamil" asChild>
                   <Link to="/login">{t('common.sendPurchaseRequest')}</Link>

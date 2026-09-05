@@ -15,5 +15,8 @@ export const farmerOrdersQuerySchema = z.object({
   search: z.string().optional(),
 })
 
+export const buyerOrdersQuerySchema = farmerOrdersQuerySchema
+
 export type UpdateOrderStatusInput = z.infer<typeof updateOrderStatusSchema>
 export type FarmerOrdersQuery = z.infer<typeof farmerOrdersQuerySchema>
+export type BuyerOrdersQuery = z.infer<typeof buyerOrdersQuerySchema>

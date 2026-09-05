@@ -6,7 +6,7 @@ import {
 } from '@prisma/client'
 import prisma from '../config/database'
 import { AppError } from '../middleware/errorHandler'
-import type { FarmerOrdersQuery, UpdateOrderStatusInput } from '../validators/order.validator'
+import type { FarmerOrdersQuery, UpdateOrderStatusInput, BuyerOrdersQuery } from '../validators/order.validator'
 
 const ORDER_STEPS: OrderStatus[] = [
   OrderStatus.PENDING_CONFIRMATION,
@@ -243,27 +243,96 @@ export async function getFarmerOrders(userId: string, query: FarmerOrdersQuery) 
   }
 }
 
-export async function getBuyerOrders(userId: string) {
+export async function getBuyerOrders(userId: string, query: BuyerOrdersQuery) {
   const buyer = await getBuyerByUserId(userId)
-  const orders = await prisma.order.findMany({
-    where: { buyerId: buyer.id },
-    include: {
-      buyer: {
-        select: { id: true, name: true, organization: true, district: true, userId: true },
+
+  const listingFilter: Prisma.ListingWhereInput = {}
+  if (query.cropId) listingFilter.cropId = query.cropId
+
+  const where: Prisma.OrderWhereInput = {
+    buyerId: buyer.id,
+    ...(query.cropId ? { listing: listingFilter } : {}),
+  }
+
+  if (query.status) where.status = query.status
+  if (query.deliveryType) where.deliveryType = query.deliveryType
+
+  if (query.search) {
+    where.AND = [
+      {
+        OR: [
+          { farmer: { name: { contains: query.search, mode: 'insensitive' } } },
+          { farmer: { district: { contains: query.search, mode: 'insensitive' } } },
+          { listing: { district: { contains: query.search, mode: 'insensitive' } } },
+          { listing: { crop: { name: { contains: query.search, mode: 'insensitive' } } } },
+          { listing: { crop: { nameTamil: { contains: query.search, mode: 'insensitive' } } } },
+        ],
       },
-      farmer: {
-        select: { id: true, name: true, district: true, isVerified: true, userId: true },
-      },
-      listing: {
-        include: {
-          crop: { select: { id: true, name: true, nameTamil: true, unit: true } },
+    ]
+  }
+
+  const skip = (query.page - 1) * query.limit
+  const buyerWhere = { buyerId: buyer.id }
+
+  const [
+    orders,
+    total,
+    pendingCount,
+    confirmedCount,
+    inTransitCount,
+    completedCount,
+    cancelledCount,
+  ] = await Promise.all([
+    prisma.order.findMany({
+      where,
+      include: {
+        buyer: {
+          select: { id: true, name: true, organization: true, district: true, userId: true },
         },
+        farmer: {
+          select: { id: true, name: true, district: true, isVerified: true, userId: true },
+        },
+        listing: {
+          include: {
+            crop: { select: { id: true, name: true, nameTamil: true, unit: true } },
+          },
+        },
+        salesRecord: { select: { id: true, soldAt: true } },
       },
-      salesRecord: { select: { id: true, soldAt: true } },
+      orderBy: { updatedAt: 'desc' },
+      skip,
+      take: query.limit,
+    }),
+    prisma.order.count({ where }),
+    prisma.order.count({
+      where: { ...buyerWhere, status: OrderStatus.PENDING_CONFIRMATION },
+    }),
+    prisma.order.count({ where: { ...buyerWhere, status: OrderStatus.CONFIRMED } }),
+    prisma.order.count({ where: { ...buyerWhere, status: OrderStatus.IN_TRANSIT } }),
+    prisma.order.count({ where: { ...buyerWhere, status: OrderStatus.COMPLETED } }),
+    prisma.order.count({ where: { ...buyerWhere, status: OrderStatus.CANCELLED } }),
+  ])
+
+  const activeCount = pendingCount + confirmedCount + inTransitCount
+
+  return {
+    orders: orders.map(formatOrder),
+    pagination: {
+      page: query.page,
+      limit: query.limit,
+      total,
+      totalPages: Math.max(1, Math.ceil(total / query.limit)),
     },
-    orderBy: { updatedAt: 'desc' },
-  })
-  return orders.map(formatOrder)
+    summary: {
+      total: pendingCount + confirmedCount + inTransitCount + completedCount + cancelledCount,
+      active: activeCount,
+      pendingConfirmation: pendingCount,
+      confirmed: confirmedCount,
+      inTransit: inTransitCount,
+      completed: completedCount,
+      cancelled: cancelledCount,
+    },
+  }
 }
 
 export async function getOrderForUser(userId: string, role: 'FARMER' | 'BUYER', orderId: string) {

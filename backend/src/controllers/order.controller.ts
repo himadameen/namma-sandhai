@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from 'express'
 import * as orderService from '../services/order.service'
-import { updateOrderStatusSchema, farmerOrdersQuerySchema } from '../validators/order.validator'
+import { updateOrderStatusSchema, farmerOrdersQuerySchema, buyerOrdersQuerySchema } from '../validators/order.validator'
 import { successResponse } from '../utils/apiResponse'
 import { AppError } from '../middleware/errorHandler'
 
@@ -44,8 +44,9 @@ export async function updateFarmerOrderStatus(req: Request, res: Response, next:
 export async function listBuyerOrders(req: Request, res: Response, next: NextFunction) {
   try {
     if (!req.user) throw new AppError(401, 'Authentication required')
-    const orders = await orderService.getBuyerOrders(req.user.userId)
-    res.json(successResponse(orders))
+    const query = buyerOrdersQuerySchema.parse(req.query)
+    const result = await orderService.getBuyerOrders(req.user.userId, query)
+    res.json(successResponse(result))
   } catch (error) {
     next(error)
   }

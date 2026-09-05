@@ -175,56 +175,130 @@ export async function getFarmerDashboard(userId: string) {
 export async function getBuyerDashboard(userId: string) {
   const buyer = await getBuyerByUserId(userId)
 
-  const [pendingRequests, activeOrders, completedOrders, orders] = await Promise.all([
-    prisma.purchaseRequest.count({
-      where: {
-        buyerId: buyer.id,
-        status: { in: [PurchaseRequestStatus.PENDING, PurchaseRequestStatus.COUNTERED] },
-      },
-    }),
-    prisma.order.count({
-      where: {
-        buyerId: buyer.id,
-        status: {
-          in: [
-            OrderStatus.PENDING_CONFIRMATION,
-            OrderStatus.CONFIRMED,
-            OrderStatus.IN_TRANSIT,
-          ],
+  const [pendingRequests, activeOrders, completedOrders, recentOrders, allOrders, completedOrderRows] =
+    await Promise.all([
+      prisma.purchaseRequest.count({
+        where: {
+          buyerId: buyer.id,
+          status: { in: [PurchaseRequestStatus.PENDING, PurchaseRequestStatus.COUNTERED] },
         },
-      },
-    }),
-    prisma.order.count({
-      where: { buyerId: buyer.id, status: OrderStatus.COMPLETED },
-    }),
-    prisma.order.findMany({
-      where: { buyerId: buyer.id },
-      include: {
-        listing: {
-          include: {
-            crop: { select: { id: true, name: true, nameTamil: true, unit: true } },
+      }),
+      prisma.order.count({
+        where: {
+          buyerId: buyer.id,
+          status: {
+            in: [
+              OrderStatus.PENDING_CONFIRMATION,
+              OrderStatus.CONFIRMED,
+              OrderStatus.IN_TRANSIT,
+            ],
           },
         },
-        farmer: { select: { id: true, name: true, district: true, isVerified: true } },
-      },
-      orderBy: { updatedAt: 'desc' },
-      take: 5,
-    }),
-  ])
+      }),
+      prisma.order.count({
+        where: { buyerId: buyer.id, status: OrderStatus.COMPLETED },
+      }),
+      prisma.order.findMany({
+        where: { buyerId: buyer.id },
+        include: {
+          listing: {
+            include: {
+              crop: { select: { id: true, name: true, nameTamil: true, unit: true } },
+            },
+          },
+          farmer: { select: { id: true, name: true, district: true, isVerified: true } },
+        },
+        orderBy: { updatedAt: 'desc' },
+        take: 5,
+      }),
+      prisma.order.findMany({
+        where: { buyerId: buyer.id },
+        select: { status: true },
+      }),
+      prisma.order.findMany({
+        where: { buyerId: buyer.id, status: OrderStatus.COMPLETED },
+        include: {
+          listing: {
+            include: {
+              crop: { select: { id: true, name: true, nameTamil: true, unit: true } },
+            },
+          },
+        },
+        orderBy: { updatedAt: 'desc' },
+      }),
+    ])
 
-  const completedOrderTotals = await prisma.order.aggregate({
-    where: { buyerId: buyer.id, status: OrderStatus.COMPLETED },
-    _sum: { totalAmount: true },
-  })
+  const totalSpent = completedOrderRows.reduce((sum, order) => sum + order.totalAmount, 0)
+
+  const monthlyMap = new Map<string, { spent: number; quantity: number }>()
+  for (const order of completedOrderRows) {
+    const key = monthKey(order.updatedAt)
+    const entry = monthlyMap.get(key) ?? { spent: 0, quantity: 0 }
+    entry.spent += order.totalAmount
+    entry.quantity += order.quantity
+    monthlyMap.set(key, entry)
+  }
+
+  const monthlySpending = Array.from(monthlyMap.entries())
+    .sort(([a], [b]) => a.localeCompare(b))
+    .slice(-6)
+    .map(([key, value]) => ({
+      month: monthLabel(key),
+      monthKey: key,
+      spent: Math.round(value.spent),
+      quantity: Math.round(value.quantity * 100) / 100,
+    }))
+
+  const cropMap = new Map<
+    string,
+    { cropId: string; cropName: string; cropNameTamil: string; spent: number; quantity: number; count: number }
+  >()
+
+  for (const order of completedOrderRows) {
+    const crop = order.listing.crop
+    const existing = cropMap.get(order.listing.cropId) ?? {
+      cropId: crop.id,
+      cropName: crop.name,
+      cropNameTamil: crop.nameTamil,
+      spent: 0,
+      quantity: 0,
+      count: 0,
+    }
+    existing.spent += order.totalAmount
+    existing.quantity += order.quantity
+    existing.count += 1
+    cropMap.set(order.listing.cropId, existing)
+  }
+
+  const spendingByCrop = Array.from(cropMap.values())
+    .sort((a, b) => b.spent - a.spent)
+    .map((item) => ({
+      ...item,
+      spent: Math.round(item.spent),
+      quantity: Math.round(item.quantity * 100) / 100,
+      sharePercent: totalSpent > 0 ? Math.round((item.spent / totalSpent) * 1000) / 10 : 0,
+    }))
+
+  const ordersByStatus = {
+    pending: allOrders.filter((o) => o.status === OrderStatus.PENDING_CONFIRMATION).length,
+    confirmed: allOrders.filter((o) => o.status === OrderStatus.CONFIRMED).length,
+    inTransit: allOrders.filter((o) => o.status === OrderStatus.IN_TRANSIT).length,
+    completed: allOrders.filter((o) => o.status === OrderStatus.COMPLETED).length,
+    cancelled: allOrders.filter((o) => o.status === OrderStatus.CANCELLED).length,
+  }
 
   return {
     kpis: {
       pendingRequests,
       activeOrders,
       completedOrders,
-      totalSpent: Math.round(completedOrderTotals._sum.totalAmount ?? 0),
+      totalSpent: Math.round(totalSpent),
+      totalOrders: allOrders.length,
     },
-    recentOrders: orders.map((order) => ({
+    ordersByStatus,
+    monthlySpending,
+    spendingByCrop,
+    recentOrders: recentOrders.map((order) => ({
       id: order.id,
       quantity: order.quantity,
       totalAmount: order.totalAmount,

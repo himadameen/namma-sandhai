@@ -69,6 +69,8 @@ export interface FarmerOrdersResponse {
   }
 }
 
+export type BuyerOrdersResponse = FarmerOrdersResponse
+
 export type OrderStatusUpdate = 'CONFIRMED' | 'IN_TRANSIT' | 'COMPLETED' | 'CANCELLED'
 
 function buildQuery(params: Record<string, string | number | boolean | undefined>): string {
@@ -90,7 +92,14 @@ export const ordersApi = {
     search?: string
   }) => apiClient<FarmerOrdersResponse>(`/farmers/orders${buildQuery(params ?? {})}`),
 
-  getBuyerOrders: () => apiClient<Order[]>('/buyers/orders'),
+  getBuyerOrders: (params?: {
+    page?: number
+    limit?: number
+    status?: OrderStatus
+    cropId?: string
+    deliveryType?: DeliveryType
+    search?: string
+  }) => apiClient<BuyerOrdersResponse>(`/buyers/orders${buildQuery(params ?? {})}`),
 
   updateFarmerOrderStatus: (id: string, status: OrderStatusUpdate) =>
     apiClient<Order>(`/farmers/orders/${id}/status`, {

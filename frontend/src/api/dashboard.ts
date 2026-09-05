@@ -66,6 +66,24 @@ export interface BuyerDashboardKpis {
   activeOrders: number
   completedOrders: number
   totalSpent: number
+  totalOrders: number
+}
+
+export interface MonthlySpendingPoint {
+  month: string
+  monthKey: string
+  spent: number
+  quantity: number
+}
+
+export interface SpendingByCrop {
+  cropId: string
+  cropName: string
+  cropNameTamil: string
+  spent: number
+  quantity: number
+  count: number
+  sharePercent: number
 }
 
 export interface BuyerDashboardOrder {
@@ -80,6 +98,9 @@ export interface BuyerDashboardOrder {
 
 export interface BuyerDashboard {
   kpis: BuyerDashboardKpis
+  ordersByStatus: OrdersByStatus
+  monthlySpending: MonthlySpendingPoint[]
+  spendingByCrop: SpendingByCrop[]
   recentOrders: BuyerDashboardOrder[]
 }
 
