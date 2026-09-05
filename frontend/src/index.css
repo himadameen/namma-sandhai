@@ -743,6 +743,19 @@
     }
   }
 
+  @keyframes market-ticker-scroll {
+    from {
+      transform: translateX(0);
+    }
+    to {
+      transform: translateX(-50%);
+    }
+  }
+
+  .market-ticker-track {
+    animation: market-ticker-scroll 36s linear infinite;
+  }
+
   @media (prefers-reduced-motion: reduce) {
     .reveal-up,
     .reveal-down,
@@ -787,7 +800,8 @@
     .mobile-nav-panel,
     .order-step-complete-ring,
     .order-star-spark,
-    .order-confetti-piece {
+    .order-confetti-piece,
+    .market-ticker-track {
       animation: none !important;
       opacity: 1 !important;
       transform: none !important;

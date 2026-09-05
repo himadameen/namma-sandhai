@@ -328,6 +328,9 @@
     "pricePremium": "₹50+",
     "minQuantityPlaceholder": "e.g. 100",
     "availableNowDesc": "Only show produce available for delivery or pickup now",
+    "gridView": "Grid view",
+    "listView": "List view",
+    "requestNow": "Request",
     "available": "available",
     "verifiedFarmer": "Verified Farmer",
     "backToMarketplace": "Back to Marketplace",
@@ -507,7 +510,14 @@
     "listingComparisonDesc": "Compare your listed price against today's market average",
     "yourPrice": "Your Listed Price",
     "difference": "Difference",
-    "noData": "No market data available for this crop and district"
+    "noData": "No market data available for this crop and district",
+    "tickerTitle": "Market pulse",
+    "yesterday": "Yesterday",
+    "today": "Today",
+    "increasedBy": "Up {{amount}} from yesterday",
+    "decreasedBy": "Down {{amount}} from yesterday",
+    "unchanged": "No change from yesterday",
+    "vsYesterday": "{{amount}} vs yesterday"
   },
   "profile": {
     "farmerSubtitle": "Manage your farm details and contact information",

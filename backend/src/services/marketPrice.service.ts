@@ -178,6 +178,109 @@ export async function getMarketTrend(query: MarketTrendQuery, farmerUserId?: str
           direction,
         }
       : null,
-    listingComparison,
+  listingComparison,
   }
 }
+
+export type PriceMoveDirection = 'up' | 'down' | 'stable'
+
+export interface DailyPriceMove {
+  cropId: string
+  cropName: string
+  cropNameTamil: string
+  district: string
+  unit: string
+  yesterdayPrice: number
+  todayPrice: number
+  change: number
+  percentChange: number
+  direction: PriceMoveDirection
+}
+
+function dateKey(date: Date) {
+  return date.toISOString().slice(0, 10)
+}
+
+export async function getDailyPriceMoves(pairs?: { cropId: string; district: string }[]): Promise<DailyPriceMove[]> {
+  const since = startOfDay(new Date())
+  since.setDate(since.getDate() - 14)
+
+  const prices = await prisma.marketPrice.findMany({
+    where: {
+      date: { gte: since },
+      ...(pairs?.length
+        ? { OR: pairs.map((pair) => ({ cropId: pair.cropId, district: pair.district })) }
+        : {}),
+    },
+    include: {
+      crop: { select: { id: true, name: true, nameTamil: true, unit: true } },
+    },
+    orderBy: { date: 'desc' },
+  })
+
+  const grouped = new Map<string, typeof prices>()
+  for (const price of prices) {
+    const key = `${price.cropId}::${price.district}`
+    const list = grouped.get(key) ?? []
+    list.push(price)
+    grouped.set(key, list)
+  }
+
+  const moves: DailyPriceMove[] = []
+
+  for (const records of grouped.values()) {
+    const byDate = new Map<string, { sum: number; count: number; unit: string; crop: (typeof records)[0]['crop']; district: string; cropId: string }>()
+    for (const record of records) {
+      const key = dateKey(record.date)
+      const existing = byDate.get(key)
+      if (existing) {
+        existing.sum += record.averagePrice
+        existing.count += 1
+      } else {
+        byDate.set(key, {
+          sum: record.averagePrice,
+          count: 1,
+          unit: record.unit,
+          crop: record.crop,
+          district: record.district,
+          cropId: record.cropId,
+        })
+      }
+    }
+
+    const days = Array.from(byDate.entries())
+      .map(([day, value]) => ({
+        day,
+        average: Math.round((value.sum / value.count) * 100) / 100,
+        unit: value.unit,
+        crop: value.crop,
+        district: value.district,
+        cropId: value.cropId,
+      }))
+      .sort((a, b) => b.day.localeCompare(a.day))
+
+    if (days.length < 2) continue
+
+    const today = days[0]
+    const yesterday = days[1]
+    const change = Math.round((today.average - yesterday.average) * 100) / 100
+    const percentChange =
+      yesterday.average > 0 ? Math.round((change / yesterday.average) * 1000) / 10 : 0
+
+    moves.push({
+      cropId: today.cropId,
+      cropName: today.crop.name,
+      cropNameTamil: today.crop.nameTamil,
+      district: today.district,
+      unit: today.unit,
+      yesterdayPrice: yesterday.average,
+      todayPrice: today.average,
+      change,
+      percentChange,
+      direction: Math.abs(change) < 0.5 ? 'stable' : change > 0 ? 'up' : 'down',
+    })
+  }
+
+  return moves.sort((a, b) => Math.abs(b.change) - Math.abs(a.change))
+}
+

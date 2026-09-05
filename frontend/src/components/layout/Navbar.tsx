@@ -22,11 +22,13 @@ export function Navbar() {
   const isHome = location.pathname === '/'
   const textClass = isTamil ? 'font-tamil' : 'font-sans'
 
+  const marketplaceHref = isAuthenticated && user?.role === 'BUYER' ? '/buyer/marketplace' : '/marketplace'
+
   const navLinks = [
     { href: '/#how-it-works', label: t('nav.howItWorks'), anchor: true, icon: mobileNavLinkIcons.howItWorks },
     { href: '/#gallery', label: t('nav.gallery'), anchor: true, icon: mobileNavLinkIcons.gallery },
     { href: '/#features', label: t('nav.features'), anchor: true, icon: mobileNavLinkIcons.features },
-    { href: '/marketplace', label: t('nav.marketplace'), anchor: false, icon: mobileNavLinkIcons.marketplace },
+    { href: marketplaceHref, label: t('nav.marketplace'), anchor: false, icon: mobileNavLinkIcons.marketplace },
   ]
 
   const isActive = (href: string) => !href.startsWith('/#') && location.pathname === href

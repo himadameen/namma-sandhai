@@ -296,8 +296,11 @@ async function main() {
   const tomatoDistricts = ['Krishnagiri', 'Chennai', 'Coimbatore', 'Madurai', 'Salem']
   for (let day = 0; day < 7; day++) {
     for (const district of tomatoDistricts) {
-      const base = 42
-      const variance = day * 0.5 + (district === 'Krishnagiri' ? 0 : 2)
+      const yesterdayPrice = 40
+      const todayPrice = 50
+      const districtBias = district === 'Krishnagiri' ? 0 : 2
+      const averagePrice =
+        (day === 0 ? todayPrice : day === 1 ? yesterdayPrice : 40 + day * 0.8) + districtBias
       marketPrices.push(
         await prisma.marketPrice.create({
           data: {
@@ -305,9 +308,9 @@ async function main() {
             district,
             marketName: `${district} Regulated Market`,
             date: daysAgo(day),
-            minPrice: base - 4 + variance,
-            maxPrice: base + 4 + variance,
-            averagePrice: base + variance,
+            minPrice: averagePrice - 4,
+            maxPrice: averagePrice + 4,
+            averagePrice,
             unit: 'kg',
           },
         })

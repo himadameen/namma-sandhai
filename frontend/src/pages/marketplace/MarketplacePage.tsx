@@ -3,7 +3,9 @@ import { MarketplaceBrowse } from '@/components/marketplace/MarketplaceBrowse'
 import { useAuth } from '@/store/auth'
 
 export function MarketplacePage() {
-  const { user, isAuthenticated } = useAuth()
+  const { user, isAuthenticated, isLoading } = useAuth()
+
+  if (isLoading) return null
 
   if (isAuthenticated && user?.role === 'BUYER') {
     return <Navigate to="/buyer/marketplace" replace />

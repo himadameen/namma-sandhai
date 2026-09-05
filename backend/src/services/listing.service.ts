@@ -8,7 +8,7 @@ import type {
   MarketplaceQuery,
   UpdateListingInput,
 } from '../validators/listing.validator'
-import { normalizeMediaInput, parseListingMedia, primaryImageUrl } from '../utils/listingMedia'
+import { getDailyPriceMoves, type DailyPriceMove } from './marketPrice.service'
 
 function parseOptionalDate(value?: string): Date | undefined {
   if (!value) return undefined
@@ -64,6 +64,14 @@ function formatListing(listing: {
       district: listing.farmer.district,
     },
   }
+}
+
+function attachPriceMove(listing: ReturnType<typeof formatListing>, moves: DailyPriceMove[]) {
+  const priceMove =
+    moves.find((move) => move.cropId === listing.crop.id && move.district === listing.district) ??
+    moves.find((move) => move.cropId === listing.crop.id) ??
+    null
+  return { ...listing, priceMove }
 }
 
 async function getLatestMarketAverage(cropId: string, district: string) {
@@ -125,14 +133,22 @@ export async function getMarketplaceListings(query: MarketplaceQuery) {
     prisma.listing.count({ where }),
   ])
 
+  const formatted = listings.map(formatListing)
+  const pairs = formatted.map((listing) => ({ cropId: listing.crop.id, district: listing.district }))
+  const [listingMoves, priceTicker] = await Promise.all([
+    pairs.length > 0 ? getDailyPriceMoves(pairs) : Promise.resolve([]),
+    getDailyPriceMoves(),
+  ])
+
   return {
-    listings: listings.map(formatListing),
+    listings: formatted.map((listing) => attachPriceMove(listing, listingMoves)),
     pagination: {
       page: query.page,
       limit: query.limit,
       total,
       totalPages: Math.ceil(total / query.limit),
     },
+    priceTicker,
   }
 }
 
@@ -147,10 +163,15 @@ export async function getListingById(id: string) {
 
   if (!listing) throw new AppError(404, 'Listing not found')
 
-  const marketAverage = await getLatestMarketAverage(listing.cropId, listing.district)
+  const [marketAverage, priceMoves] = await Promise.all([
+    getLatestMarketAverage(listing.cropId, listing.district),
+    getDailyPriceMoves([{ cropId: listing.cropId, district: listing.district }]),
+  ])
+
+  const formatted = formatListing(listing)
 
   return {
-    ...formatListing(listing),
+    ...attachPriceMove(formatted, priceMoves),
     farmer: listing.farmer,
     marketAverage,
   }

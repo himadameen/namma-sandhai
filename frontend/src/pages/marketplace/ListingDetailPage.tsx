@@ -13,6 +13,7 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent } from '@/components/ui/card'
 import { PurchaseRequestDialog } from '@/components/requests/PurchaseRequestDialog'
+import { PriceMoveChip } from '@/components/marketplace/PriceMoveChip'
 import { Skeleton } from '@/components/ui/skeleton'
 import { cn } from '@/lib/utils'
 
@@ -30,15 +31,15 @@ export function ListingDetailPage() {
   const isBuyerShell = location.pathname.startsWith('/buyer/marketplace')
   const marketplaceBase = isBuyerShell ? '/buyer/marketplace' : '/marketplace'
 
-  if (isAuthenticated && user?.role === 'BUYER' && !isBuyerShell && id) {
-    return <Navigate to={`/buyer/marketplace/${id}`} replace />
-  }
-
   const { data: listing, isLoading, error } = useQuery({
     queryKey: ['listing', id],
     queryFn: () => listingsApi.getById(id!),
     enabled: !!id,
   })
+
+  if (isAuthenticated && user?.role === 'BUYER' && !isBuyerShell && id) {
+    return <Navigate to={`/buyer/marketplace/${id}`} replace />
+  }
 
   if (isLoading) {
     return (
@@ -152,6 +153,22 @@ export function ListingDetailPage() {
               </Card>
             )}
           </div>
+
+          {listing.priceMove && (
+            <Card className="mt-4 border-border/80">
+              <CardContent className="flex flex-wrap items-center justify-between gap-4 pt-5">
+                <div>
+                  <p className="text-sm font-semibold">{t('market.tickerTitle')}</p>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    {t('market.yesterday')} {formatCurrency(listing.priceMove.yesterdayPrice)}/{listing.priceMove.unit}
+                    <span className="mx-2">→</span>
+                    {t('market.today')} {formatCurrency(listing.priceMove.todayPrice)}/{listing.priceMove.unit}
+                  </p>
+                </div>
+                <PriceMoveChip move={listing.priceMove} />
+              </CardContent>
+            </Card>
+          )}
 
           <div className="mt-6 grid gap-3 text-sm sm:grid-cols-2">
             <div className="flex items-center gap-2 text-muted-foreground">

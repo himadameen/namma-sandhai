@@ -7,25 +7,24 @@ import {
   MapPin,
   Sprout,
   BadgeCheck,
-  SlidersHorizontal,
   IndianRupee,
   Package,
+  LayoutGrid,
+  List,
 } from 'lucide-react'
 import { listingsApi } from '@/api/listings'
 import { marketApi } from '@/api/market'
 import { TN_DISTRICTS } from '@/constants/districts'
 import { useLocaleText } from '@/hooks/useLocaleText'
-import { PageHeader } from '@/components/dashboard/PageHeader'
 import { ListingCard } from '@/components/marketplace/ListingCard'
+import { MarketPriceTicker } from '@/components/marketplace/MarketPriceTicker'
 import { Input } from '@/components/ui/input'
 import { DropdownSelect } from '@/components/ui/dropdown-select'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { PaginationControls } from '@/components/ui/pagination'
 import { ToggleSwitch } from '@/components/ui/toggle-switch'
-import { useBodyScrollLock } from '@/hooks/useBodyScrollLock'
 import { cn } from '@/lib/utils'
 
 const PAGE_SIZE_OPTIONS = [6, 12, 24]
@@ -37,7 +36,7 @@ interface MarketplaceBrowseProps {
   basePath?: string
 }
 
-function FiltersPanel({
+function FiltersBar({
   searchInput,
   onSearchChange,
   cropId,
@@ -59,7 +58,6 @@ function FiltersPanel({
   onClear,
   activeFilterCount,
   t,
-  className,
 }: {
   searchInput: string
   onSearchChange: (value: string) => void
@@ -82,7 +80,6 @@ function FiltersPanel({
   onClear: () => void
   activeFilterCount: number
   t: (key: string, opts?: Record<string, unknown>) => string
-  className?: string
 }) {
   const pricePresets: { key: PricePreset; label: string }[] = [
     { key: '', label: t('listings.priceAny') },
@@ -92,110 +89,98 @@ function FiltersPanel({
   ]
 
   return (
-    <div className={cn('space-y-5', className)}>
-      <div className="relative">
-        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-        <Input
-          className="h-10 pl-10"
-          placeholder={t('listings.searchPlaceholder')}
-          value={searchInput}
-          onChange={(e) => onSearchChange(e.target.value)}
-        />
+    <div className="space-y-3 rounded-2xl border border-border/80 bg-card p-3 shadow-sm sm:p-4">
+      <div className="flex flex-wrap items-center gap-2.5">
+        <div className="relative min-w-[12rem] flex-1">
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            className="h-11 pl-10"
+            placeholder={t('listings.searchPlaceholder')}
+            value={searchInput}
+            onChange={(e) => onSearchChange(e.target.value)}
+          />
+        </div>
+        <div className="w-full min-w-[10rem] sm:w-44">
+          <DropdownSelect
+            value={cropId}
+            options={cropOptions}
+            onChange={onCropChange}
+            ariaLabel={t('listings.filterCrop')}
+            fullWidth
+            align="left"
+          />
+        </div>
+        <div className="w-full min-w-[10rem] sm:w-44">
+          <DropdownSelect
+            value={district}
+            options={districtOptions}
+            onChange={onDistrictChange}
+            ariaLabel={t('profile.district')}
+            fullWidth
+            align="left"
+          />
+        </div>
+        <div className="relative w-full min-w-[8rem] sm:w-32">
+          <Package className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            type="number"
+            min="0"
+            className="h-11 pl-8"
+            placeholder={t('listings.minQuantity')}
+            value={minQuantity}
+            onChange={(e) => onMinQuantityChange(e.target.value)}
+          />
+        </div>
+        <div className="inline-flex h-11 items-center gap-2 rounded-xl border border-border bg-background px-3">
+          <span className="whitespace-nowrap text-sm font-medium">{t('listings.availableNow')}</span>
+          <ToggleSwitch checked={availableOnly} onChange={onAvailableOnlyChange} />
+        </div>
+        {activeFilterCount > 0 && (
+          <Button variant="ghost" size="sm" className="h-11" onClick={onClear}>
+            <X className="mr-1 h-4 w-4" />
+            {t('listings.clearFilters')}
+          </Button>
+        )}
       </div>
 
-      <div className="space-y-2">
-        <label className="text-sm font-medium">{t('listings.filterCrop')}</label>
-        <DropdownSelect
-          value={cropId}
-          options={cropOptions}
-          onChange={onCropChange}
-          ariaLabel={t('listings.filterCrop')}
-          fullWidth
-          align="left"
-        />
-      </div>
-
-      <div className="space-y-2">
-        <label className="text-sm font-medium">{t('profile.district')}</label>
-        <DropdownSelect
-          value={district}
-          options={districtOptions}
-          onChange={onDistrictChange}
-          ariaLabel={t('profile.district')}
-          fullWidth
-          align="left"
-        />
-      </div>
-
-      <div className="space-y-2">
-        <label className="flex items-center gap-1.5 text-sm font-medium">
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="inline-flex items-center gap-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
           <IndianRupee className="h-3.5 w-3.5" />
           {t('listings.priceRange')}
-        </label>
-        <div className="flex flex-wrap gap-2">
-          {pricePresets.map((preset) => (
-            <button
-              key={preset.key || 'any'}
-              type="button"
-              onClick={() => onPricePresetChange(preset.key)}
-              className={cn(
-                'rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors',
-                pricePreset === preset.key
-                  ? 'border-primary bg-primary text-primary-foreground'
-                  : 'border-border bg-background text-muted-foreground hover:border-primary/30 hover:text-foreground'
-              )}
-            >
-              {preset.label}
-            </button>
-          ))}
-        </div>
-        <div className="grid grid-cols-2 gap-2">
-          <Input
-            type="number"
-            min="0"
-            placeholder={t('listings.minPrice')}
-            value={minPrice}
-            onChange={(e) => onMinPriceChange(e.target.value)}
-          />
-          <Input
-            type="number"
-            min="0"
-            placeholder={t('listings.maxPrice')}
-            value={maxPrice}
-            onChange={(e) => onMaxPriceChange(e.target.value)}
-          />
-        </div>
-      </div>
-
-      <div className="space-y-2">
-        <label className="flex items-center gap-1.5 text-sm font-medium">
-          <Package className="h-3.5 w-3.5" />
-          {t('listings.minQuantity')}
-        </label>
+        </span>
+        {pricePresets.map((preset) => (
+          <button
+            key={preset.key || 'any'}
+            type="button"
+            onClick={() => onPricePresetChange(preset.key)}
+            className={cn(
+              'rounded-full border px-3 py-1 text-xs font-semibold transition-colors',
+              pricePreset === preset.key
+                ? 'border-primary bg-primary text-primary-foreground'
+                : 'border-border bg-background text-muted-foreground hover:border-primary/30 hover:text-foreground'
+            )}
+          >
+            {preset.label}
+          </button>
+        ))}
         <Input
           type="number"
           min="0"
-          placeholder={t('listings.minQuantityPlaceholder')}
-          value={minQuantity}
-          onChange={(e) => onMinQuantityChange(e.target.value)}
+          className="h-8 w-24"
+          placeholder={t('listings.minPrice')}
+          value={minPrice}
+          onChange={(e) => onMinPriceChange(e.target.value)}
+        />
+        <span className="text-muted-foreground">–</span>
+        <Input
+          type="number"
+          min="0"
+          className="h-8 w-24"
+          placeholder={t('listings.maxPrice')}
+          value={maxPrice}
+          onChange={(e) => onMaxPriceChange(e.target.value)}
         />
       </div>
-
-      <div className="rounded-xl border border-border/60 bg-muted/20 px-3 py-3">
-        <ToggleSwitch
-          id="available-only"
-          checked={availableOnly}
-          onChange={onAvailableOnlyChange}
-          label={t('listings.availableNow')}
-          description={t('listings.availableNowDesc')}
-        />
-      </div>
-
-      {activeFilterCount > 0 && (
-        <Button variant="outline" size="sm" className="w-full" onClick={onClear}>
-          {t('listings.clearFilters')}
-        </Button>
-      )}
     </div>
   )
 }
@@ -215,9 +200,7 @@ export function MarketplaceBrowse({ variant = 'public', basePath = '/marketplace
   const [minQuantity, setMinQuantity] = useState('')
   const [availableOnly, setAvailableOnly] = useState(true)
   const [pricePreset, setPricePreset] = useState<PricePreset>('')
-  const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false)
-
-  useBodyScrollLock(mobileFiltersOpen)
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -302,6 +285,7 @@ export function MarketplaceBrowse({ variant = 'public', basePath = '/marketplace
   )
 
   const listings = data?.listings ?? []
+  const priceTicker = data?.priceTicker ?? []
   const pagination = data?.pagination
   const total = pagination?.total ?? 0
   const from = pagination ? (pagination.page - 1) * pagination.limit + 1 : 0
@@ -332,7 +316,7 @@ export function MarketplaceBrowse({ variant = 'public', basePath = '/marketplace
 
   const popularCrops = crops?.slice(0, 8) ?? []
 
-  const filterPanelProps = {
+  const filterBarProps = {
     searchInput,
     onSearchChange: setSearchInput,
     cropId,
@@ -370,12 +354,36 @@ export function MarketplaceBrowse({ variant = 'public', basePath = '/marketplace
 
   const resultsSection = (
     <>
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <p className={cn('text-sm text-muted-foreground', textClass)}>
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-border/70 bg-card px-3 py-2.5 shadow-sm">
+        <p className={cn('text-sm font-medium text-foreground', textClass)}>
           {!isLoading && !error && total > 0
             ? t('listings.resultsCount', { count: total })
             : t('listings.marketplaceSubtitle')}
         </p>
+        <div className="flex items-center rounded-lg border border-border p-0.5">
+          <button
+            type="button"
+            onClick={() => setViewMode('grid')}
+            className={cn(
+              'inline-flex h-8 w-8 items-center justify-center rounded-md transition-colors',
+              viewMode === 'grid' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'
+            )}
+            aria-label={t('listings.gridView')}
+          >
+            <LayoutGrid className="h-4 w-4" />
+          </button>
+          <button
+            type="button"
+            onClick={() => setViewMode('list')}
+            className={cn(
+              'inline-flex h-8 w-8 items-center justify-center rounded-md transition-colors',
+              viewMode === 'list' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'
+            )}
+            aria-label={t('listings.listView')}
+          >
+            <List className="h-4 w-4" />
+          </button>
+        </div>
       </div>
 
       {popularCrops.length > 0 && (
@@ -470,9 +478,14 @@ export function MarketplaceBrowse({ variant = 'public', basePath = '/marketplace
       )}
 
       {isLoading ? (
-        <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-2 2xl:grid-cols-3">
-          {Array.from({ length: limit }).map((_, i) => (
-            <Skeleton key={i} className="h-[20rem] rounded-2xl" />
+        <div
+          className={cn(
+            'grid gap-4',
+            viewMode === 'list' ? 'grid-cols-1' : 'sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4'
+          )}
+        >
+          {Array.from({ length: Math.min(limit, 6) }).map((_, i) => (
+            <Skeleton key={i} className={cn('rounded-2xl', viewMode === 'list' ? 'h-28' : 'h-[20rem]')} />
           ))}
         </div>
       ) : error ? (
@@ -493,13 +506,13 @@ export function MarketplaceBrowse({ variant = 'public', basePath = '/marketplace
         <>
           <div
             className={cn(
-              'grid gap-5 sm:grid-cols-2',
-              isDashboard ? 'xl:grid-cols-2 2xl:grid-cols-3' : 'xl:grid-cols-3',
+              'grid gap-4',
+              viewMode === 'list' ? 'grid-cols-1' : 'sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4',
               isFetching && 'opacity-70'
             )}
           >
             {listings.map((listing) => (
-              <ListingCard key={listing.id} listing={listing} basePath={basePath} />
+              <ListingCard key={listing.id} listing={listing} basePath={basePath} variant={viewMode} />
             ))}
           </div>
 
@@ -537,7 +550,35 @@ export function MarketplaceBrowse({ variant = 'public', basePath = '/marketplace
   return (
     <div className={cn('space-y-6', !isDashboard && 'mx-auto max-w-7xl px-4 py-8 md:px-6 lg:px-8')}>
       {isDashboard ? (
-        <PageHeader title={t('nav.marketplace')} description={t('listings.marketplaceDashboardDesc')} />
+        <section className="relative overflow-hidden rounded-2xl border border-primary/15 bg-gradient-to-br from-primary via-primary to-secondary p-5 text-primary-foreground sm:p-6">
+          <div className="pointer-events-none absolute -right-8 -top-8 h-28 w-28 rounded-full bg-white/10 blur-2xl" />
+          <div className="relative flex flex-wrap items-end justify-between gap-4">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-widest text-primary-foreground/75">
+                {t('listings.browseFresh')}
+              </p>
+              <h1 className={cn('mt-1 text-2xl font-bold sm:text-3xl', textClass)}>{t('nav.marketplace')}</h1>
+              <p className={cn('mt-2 max-w-xl text-sm text-primary-foreground/85', textClass)}>
+                {t('listings.marketplaceDashboardDesc')}
+              </p>
+            </div>
+            {total > 0 && (
+              <div className="flex gap-2">
+                {[
+                  { label: t('listings.freshListings'), value: total, icon: Sprout },
+                  { label: t('listings.districtsCovered'), value: new Set(listings.map((l) => l.district)).size || '18+', icon: MapPin },
+                  { label: t('listings.verifiedListings'), value: listings.filter((l) => l.farmer.isVerified).length, icon: BadgeCheck },
+                ].map(({ label, value, icon: Icon }) => (
+                  <div key={label} className="min-w-[5.5rem] rounded-xl border border-white/15 bg-white/10 px-3 py-2 backdrop-blur-sm">
+                    <Icon className="mb-1 h-3.5 w-3.5 text-white/80" />
+                    <p className="text-lg font-bold tabular-nums leading-none">{value}</p>
+                    <p className="mt-1 text-[10px] font-medium text-white/75">{label}</p>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </section>
       ) : (
         <section className="relative overflow-hidden rounded-2xl border border-primary/15 bg-gradient-to-br from-primary via-primary to-secondary p-5 text-primary-foreground sm:p-7">
           <div className="pointer-events-none absolute -right-10 -top-10 h-36 w-36 rounded-full bg-white/10 blur-2xl" />
@@ -554,86 +595,9 @@ export function MarketplaceBrowse({ variant = 'public', basePath = '/marketplace
         </section>
       )}
 
-      {isDashboard && total > 0 && (
-        <div className="grid grid-cols-3 gap-3 sm:max-w-lg">
-          {[
-            { label: t('listings.freshListings'), value: total, icon: Sprout },
-            { label: t('listings.districtsCovered'), value: new Set(listings.map((l) => l.district)).size || '18+', icon: MapPin },
-            { label: t('listings.verifiedListings'), value: listings.filter((l) => l.farmer.isVerified).length, icon: BadgeCheck },
-          ].map(({ label, value, icon: Icon }) => (
-            <Card key={label} className="border-border/80">
-              <CardContent className="flex items-center gap-3 p-3">
-                <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                  <Icon className="h-4 w-4" />
-                </div>
-                <div>
-                  <p className="text-lg font-bold tabular-nums">{value}</p>
-                  <p className={cn('text-[10px] font-medium text-muted-foreground', textClass)}>{label}</p>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      )}
-
-      <div className="flex flex-col gap-6 lg:flex-row lg:items-start">
-        <aside className="hidden w-full shrink-0 lg:block lg:w-72 xl:w-80">
-          <Card className="sticky top-24 border-border/80 shadow-card">
-            <CardHeader className="pb-3 pt-5">
-              <CardTitle className={cn('flex items-center gap-2 text-base', textClass)}>
-                <SlidersHorizontal className="h-4 w-4 text-primary" />
-                {t('listings.filters')}
-                {activeFilterCount > 0 && (
-                  <Badge variant="default" className="ml-auto h-5 min-w-5 px-1.5">
-                    {activeFilterCount}
-                  </Badge>
-                )}
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="pb-5">
-              <FiltersPanel {...filterPanelProps} />
-            </CardContent>
-          </Card>
-        </aside>
-
-        <div className="min-w-0 flex-1">
-          <div className="lg:hidden">
-            <Button variant="outline" className="mb-4 w-full" onClick={() => setMobileFiltersOpen(true)}>
-              <SlidersHorizontal className="mr-2 h-4 w-4" />
-              {t('listings.filters')}
-              {activeFilterCount > 0 && (
-                <Badge variant="default" className="ml-2">
-                  {activeFilterCount}
-                </Badge>
-              )}
-            </Button>
-          </div>
-          {resultsSection}
-        </div>
-      </div>
-
-      {mobileFiltersOpen && (
-        <div className="fixed inset-0 z-50 lg:hidden" role="presentation">
-          <button
-            type="button"
-            className="absolute inset-0 bg-black/50 backdrop-blur-[2px]"
-            onClick={() => setMobileFiltersOpen(false)}
-            aria-label={t('listings.closeFilters')}
-          />
-          <div className="absolute bottom-0 left-0 right-0 max-h-[85vh] overflow-y-auto rounded-t-2xl border border-border bg-card p-5 shadow-elevated">
-            <div className="mb-4 flex items-center justify-between">
-              <h2 className={cn('text-lg font-bold', textClass)}>{t('listings.filters')}</h2>
-              <Button variant="ghost" size="icon" onClick={() => setMobileFiltersOpen(false)}>
-                <X className="h-4 w-4" />
-              </Button>
-            </div>
-            <FiltersPanel {...filterPanelProps} />
-            <Button className="mt-4 w-full" onClick={() => setMobileFiltersOpen(false)}>
-              {t('listings.showResults', { count: total })}
-            </Button>
-          </div>
-        </div>
-      )}
+      <MarketPriceTicker moves={priceTicker} />
+      <FiltersBar {...filterBarProps} />
+      {resultsSection}
     </div>
   )
 }

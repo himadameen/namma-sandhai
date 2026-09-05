@@ -16,6 +16,19 @@ export interface ListingFarmer {
   phone?: string
 }
 
+export interface DailyPriceMove {
+  cropId: string
+  cropName: string
+  cropNameTamil: string
+  district: string
+  unit: string
+  yesterdayPrice: number
+  todayPrice: number
+  change: number
+  percentChange: number
+  direction: 'up' | 'down' | 'stable'
+}
+
 export interface Listing {
   id: string
   variety: string | null
@@ -35,6 +48,7 @@ export interface Listing {
   updatedAt: string
   crop: Crop
   farmer: ListingFarmer
+  priceMove?: DailyPriceMove | null
 }
 
 export interface ListingDetail extends Listing {
@@ -70,6 +84,7 @@ export interface MarketplaceResponse {
     total: number
     totalPages: number
   }
+  priceTicker: DailyPriceMove[]
 }
 
 export interface CreateListingPayload {
