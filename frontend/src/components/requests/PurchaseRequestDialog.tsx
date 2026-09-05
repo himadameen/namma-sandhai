@@ -14,6 +14,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { FormDropdownSelect } from '@/components/ui/form-dropdown-select'
+import { PriceMoveChip } from '@/components/marketplace/PriceMoveChip'
 import { cn } from '@/lib/utils'
 
 const schema = z.object({
@@ -157,6 +158,23 @@ export function PurchaseRequestDialog({ listing, onClose, onSuccess }: PurchaseR
               </p>
             </div>
           </div>
+
+          {listing.priceMove && (
+            <div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-primary/20 bg-background/90 px-3.5 py-2.5 shadow-xs">
+              <div className="min-w-0">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                  {t('market.tickerTitle')} · {listing.district}
+                </p>
+                <p className="mt-0.5 text-xs font-semibold text-foreground">
+                  {t('market.yesterday')} <span className="tabular-nums font-bold">{formatCurrency(listing.priceMove.yesterdayPrice)}</span>
+                  <span className="mx-1.5 text-muted-foreground">→</span>
+                  {t('market.today')} <span className="tabular-nums font-bold text-primary">{formatCurrency(listing.priceMove.todayPrice)}</span>
+                  <span className="text-[11px] font-normal text-muted-foreground">/{listing.priceMove.unit}</span>
+                </p>
+              </div>
+              <PriceMoveChip move={listing.priceMove} />
+            </div>
+          )}
         </div>
 
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 overflow-y-auto px-5 py-5 sm:px-6">

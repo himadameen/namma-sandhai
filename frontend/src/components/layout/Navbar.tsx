@@ -56,10 +56,10 @@ export function Navbar() {
     <>
       <header
         className={cn(
-          'sticky top-0 z-50 transition-all duration-300',
+          'sticky top-0 z-50 w-full transition-all duration-300',
           scrolled || !isHome
             ? 'border-b border-border/70 bg-background/95 shadow-sm backdrop-blur-lg'
-            : 'border-b border-border/40 bg-background/80 backdrop-blur-md'
+            : 'border-b border-border/40 bg-background/90 backdrop-blur-md'
         )}
       >
         <div className="mx-auto flex h-16 max-w-7xl items-center gap-4 px-4 sm:px-6 lg:px-8">

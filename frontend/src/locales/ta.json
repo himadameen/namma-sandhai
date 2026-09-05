@@ -517,7 +517,11 @@
     "increasedBy": "நேற்றுடன் ஒப்பிட {{amount}} உயர்வு",
     "decreasedBy": "நேற்றுடன் ஒப்பிட {{amount}} இறக்கம்",
     "unchanged": "நேற்றுடன் மாற்றம் இல்லை",
-    "vsYesterday": "நேற்றுடன் {{amount}}"
+    "vsYesterday": "நேற்றுடன் {{amount}}",
+    "marketTrend": "சந்தை போக்கு",
+    "marketPrice": "சந்தை விலை",
+    "stable": "நிலையானது",
+    "hoverToPause": "நிறுத்த கர்சரை வைக்கவும்"
   },
   "profile": {
     "farmerSubtitle": "உங்கள் பண்ணை விவரங்கள் மற்றும் தொடர்பு தகவலை நிர்வகிக்கவும்",

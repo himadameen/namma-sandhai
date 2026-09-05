@@ -43,11 +43,13 @@
 
   html {
     @apply scroll-smooth;
+    overflow-x: clip;
   }
 
   body {
     @apply bg-background text-foreground font-sans antialiased;
     font-feature-settings: "rlig" 1, "calt" 1;
+    overflow-x: clip;
   }
 
   .dark {
@@ -753,7 +755,13 @@
   }
 
   .market-ticker-track {
-    animation: market-ticker-scroll 36s linear infinite;
+    animation: market-ticker-scroll 65s linear infinite;
+    will-change: transform;
+  }
+
+  .market-ticker-container:hover .market-ticker-track,
+  .market-ticker-track:hover {
+    animation-play-state: paused !important;
   }
 
   @media (prefers-reduced-motion: reduce) {

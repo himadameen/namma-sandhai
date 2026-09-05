@@ -45,6 +45,22 @@ export function ListingCard({ listing, basePath = '/marketplace', variant = 'gri
                 <h3 className={cn('truncate text-lg font-bold text-foreground', textClass)}>
                   {getCropEmoji(listing.crop.name)} {cropName}
                 </h3>
+                <span
+                  className={cn(
+                    'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold border',
+                    listing.status === 'ACTIVE'
+                      ? 'bg-emerald-50 text-emerald-800 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800'
+                      : 'bg-muted/50 text-muted-foreground border-border'
+                  )}
+                >
+                  <span
+                    className={cn(
+                      'h-1.5 w-1.5 rounded-full',
+                      listing.status === 'ACTIVE' ? 'bg-emerald-500' : 'bg-muted-foreground/50'
+                    )}
+                  />
+                  {t(`listings.status.${listing.status}`)}
+                </span>
                 {listing.farmer.isVerified && (
                   <Badge variant="success" className="gap-1">
                     <CheckCircle2 className="h-3 w-3" />
@@ -53,7 +69,16 @@ export function ListingCard({ listing, basePath = '/marketplace', variant = 'gri
                 )}
               </div>
               {listing.variety && <p className="mt-0.5 truncate text-sm text-muted-foreground">{listing.variety}</p>}
-              {listing.priceMove && <PriceMoveChip move={listing.priceMove} className="mt-2" />}
+              {listing.priceMove && (
+                <div className="mt-2 flex flex-wrap items-center gap-2">
+                  <span className="text-xs text-muted-foreground">
+                    {t('market.yesterday')} <span className="font-semibold text-foreground">{formatCurrency(listing.priceMove.yesterdayPrice)}</span>
+                    <span className="mx-1 text-muted-foreground/60">→</span>
+                    {t('market.today')} <span className="font-semibold text-foreground">{formatCurrency(listing.priceMove.todayPrice)}/{listing.priceMove.unit}</span>
+                  </span>
+                  <PriceMoveChip move={listing.priceMove} compact />
+                </div>
+              )}
             </div>
             <p className="shrink-0 text-right">
               <span className="block text-lg font-bold text-secondary">{formatCurrency(listing.expectedPrice)}</span>
@@ -100,14 +125,27 @@ export function ListingCard({ listing, basePath = '/marketplace', variant = 'gri
           placeholderLabel={t('listings.mediaPlaceholder')}
           className="h-full w-full transition-transform duration-500 group-hover:scale-105"
         />
-        <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/60 via-black/10 to-transparent" />
+        <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-black/35 via-transparent to-black/65" />
 
-        <div className="absolute left-3 top-3 flex flex-wrap gap-2">
-          <Badge variant={listing.status === 'ACTIVE' ? 'success' : 'muted'} className="shadow-sm">
+        <div className="absolute left-3 top-3 flex flex-wrap items-center gap-2">
+          <span
+            className={cn(
+              'inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[11px] font-semibold shadow-sm backdrop-blur-sm border',
+              listing.status === 'ACTIVE'
+                ? 'bg-white/95 text-emerald-800 border-emerald-200/60 dark:bg-slate-900/90 dark:text-emerald-300 dark:border-emerald-700/60'
+                : 'bg-white/95 text-muted-foreground border-border dark:bg-slate-900/90'
+            )}
+          >
+            <span
+              className={cn(
+                'h-1.5 w-1.5 rounded-full',
+                listing.status === 'ACTIVE' ? 'bg-emerald-500' : 'bg-muted-foreground/50'
+              )}
+            />
             {t(`listings.status.${listing.status}`)}
-          </Badge>
+          </span>
           {listing.farmer.isVerified && (
-            <span className="inline-flex items-center gap-1 rounded-full bg-white/92 px-2 py-0.5 text-[11px] font-semibold text-foreground shadow-sm backdrop-blur-sm">
+            <span className="inline-flex items-center gap-1 rounded-full bg-white/95 px-2.5 py-0.5 text-[11px] font-semibold text-foreground shadow-sm backdrop-blur-sm border border-border/40 dark:bg-slate-900/90">
               <CheckCircle2 className="h-3 w-3 text-secondary" />
               {t('listings.verifiedFarmer')}
             </span>
@@ -143,9 +181,30 @@ export function ListingCard({ listing, basePath = '/marketplace', variant = 'gri
             {listing.district}
           </span>
         </div>
-        {listing.priceMove && <PriceMoveChip move={listing.priceMove} className="mt-3 w-fit" />}
 
-        <div className="mt-3 flex items-center justify-between gap-3 border-t border-border/60 pt-3">
+        {/* Stock market price fluctuation bar */}
+        <div className="mt-3 mb-3.5">
+          {listing.priceMove ? (
+            <div className="flex items-center justify-between gap-2 rounded-xl border border-border/70 bg-muted/30 px-3 py-2 text-xs">
+              <div className="flex min-w-0 items-center gap-1 text-[11px] text-muted-foreground">
+                <span className="truncate">
+                  {t('market.yesterday')} <span className="font-semibold tabular-nums text-foreground">{formatCurrency(listing.priceMove.yesterdayPrice)}</span>
+                  <span className="mx-1 text-muted-foreground/50">→</span>
+                  {t('market.today')} <span className="font-semibold tabular-nums text-foreground">{formatCurrency(listing.priceMove.todayPrice)}</span>
+                </span>
+              </div>
+              <PriceMoveChip move={listing.priceMove} compact showPercent={false} />
+            </div>
+          ) : (
+            <div className="flex items-center justify-between gap-2 rounded-xl border border-dashed border-border/60 bg-muted/15 px-3 py-2 text-xs text-muted-foreground">
+              <span className="text-[11px]">{t('market.marketTrend')}</span>
+              <span className="text-[11px] font-medium text-muted-foreground/80">{t('market.stable')}</span>
+            </div>
+          )}
+        </div>
+
+        {/* Footer with Farmer and Request action - anchored to bottom with mt-auto so border aligns across all cards */}
+        <div className="mt-auto border-t border-border/60 pt-3.5 flex items-center justify-between gap-3">
           <div className="min-w-0">
             <p className="inline-flex items-center gap-1.5 truncate text-sm font-semibold">
               <User className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />

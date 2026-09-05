@@ -8,6 +8,7 @@ import type {
   MarketplaceQuery,
   UpdateListingInput,
 } from '../validators/listing.validator'
+import { normalizeMediaInput, parseListingMedia, primaryImageUrl } from '../utils/listingMedia'
 import { getDailyPriceMoves, type DailyPriceMove } from './marketPrice.service'
 
 function parseOptionalDate(value?: string): Date | undefined {
@@ -141,7 +142,7 @@ export async function getMarketplaceListings(query: MarketplaceQuery) {
   ])
 
   return {
-    listings: formatted.map((listing) => attachPriceMove(listing, listingMoves)),
+    listings: formatted.map((listing) => attachPriceMove(listing, [...listingMoves, ...priceTicker])),
     pagination: {
       page: query.page,
       limit: query.limit,
@@ -165,7 +166,7 @@ export async function getListingById(id: string) {
 
   const [marketAverage, priceMoves] = await Promise.all([
     getLatestMarketAverage(listing.cropId, listing.district),
-    getDailyPriceMoves([{ cropId: listing.cropId, district: listing.district }]),
+    getDailyPriceMoves(),
   ])
 
   const formatted = formatListing(listing)

@@ -517,7 +517,11 @@
     "increasedBy": "Up {{amount}} from yesterday",
     "decreasedBy": "Down {{amount}} from yesterday",
     "unchanged": "No change from yesterday",
-    "vsYesterday": "{{amount}} vs yesterday"
+    "vsYesterday": "{{amount}} vs yesterday",
+    "marketTrend": "Market Trend",
+    "marketPrice": "Market Price",
+    "stable": "Stable",
+    "hoverToPause": "Hover to pause"
   },
   "profile": {
     "farmerSubtitle": "Manage your farm details and contact information",

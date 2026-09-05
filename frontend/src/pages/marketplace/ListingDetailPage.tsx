@@ -155,14 +155,24 @@ export function ListingDetailPage() {
           </div>
 
           {listing.priceMove && (
-            <Card className="mt-4 border-border/80">
-              <CardContent className="flex flex-wrap items-center justify-between gap-4 pt-5">
+            <Card className="mt-4 border-primary/20 bg-primary/[0.03]">
+              <CardContent className="flex flex-wrap items-center justify-between gap-4 p-5">
                 <div>
-                  <p className="text-sm font-semibold">{t('market.tickerTitle')}</p>
-                  <p className="mt-1 text-sm text-muted-foreground">
-                    {t('market.yesterday')} {formatCurrency(listing.priceMove.yesterdayPrice)}/{listing.priceMove.unit}
-                    <span className="mx-2">→</span>
-                    {t('market.today')} {formatCurrency(listing.priceMove.todayPrice)}/{listing.priceMove.unit}
+                  <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                    {t('market.tickerTitle')} · {listing.district}
+                  </p>
+                  <p className="mt-1 text-base font-semibold text-foreground">
+                    {t('market.yesterday')}{' '}
+                    <span className="tabular-nums font-bold text-foreground">
+                      {formatCurrency(listing.priceMove.yesterdayPrice)}
+                    </span>
+                    /{listing.priceMove.unit}
+                    <span className="mx-2 text-muted-foreground">→</span>
+                    {t('market.today')}{' '}
+                    <span className="tabular-nums font-bold text-primary">
+                      {formatCurrency(listing.priceMove.todayPrice)}
+                    </span>
+                    /{listing.priceMove.unit}
                   </p>
                 </div>
                 <PriceMoveChip move={listing.priceMove} />
