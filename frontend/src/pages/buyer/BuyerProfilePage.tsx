@@ -4,8 +4,19 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { CheckCircle2, Loader2 } from 'lucide-react'
-import { profileApi } from '@/api/profile'
+import { Loader2 } from 'lucide-react'
+import {
+  profileApi,
+  BUYER_DOCUMENT_TYPES,
+  defaultKycSummary,
+  type DocumentType,
+  type KycStatus,
+} from '@/api/profile'
+import { PageHeader } from '@/components/dashboard/PageHeader'
+import { ProfileHeroCard } from '@/components/profile/ProfileHeroCard'
+import { KycStatusBanner } from '@/components/profile/KycStatusBanner'
+import { KycDocumentsSection } from '@/components/profile/KycDocumentsSection'
+import { useLocaleText } from '@/hooks/useLocaleText'
 import { useAuth } from '@/store/auth'
 import { TN_DISTRICTS, BUYER_TYPES } from '@/constants/districts'
 import { Button } from '@/components/ui/button'
@@ -13,8 +24,8 @@ import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { FormDropdownSelect } from '@/components/ui/form-dropdown-select'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
+import { formatDate } from '@/utils/listings'
 
 const schema = z.object({
   name: z.string().min(2),
@@ -29,13 +40,37 @@ const schema = z.object({
 
 type FormValues = z.infer<typeof schema>
 
+function kycBannerContent(status: KycStatus, t: (key: string) => string) {
+  const map: Record<KycStatus, { title: string; message: string }> = {
+    NOT_STARTED: {
+      title: t('profile.kyc.notStartedTitle'),
+      message: t('profile.kyc.notStartedMessage'),
+    },
+    INCOMPLETE: {
+      title: t('profile.kyc.incompleteTitle'),
+      message: t('profile.kyc.incompleteMessage'),
+    },
+    SUBMITTED: {
+      title: t('profile.kyc.submittedTitle'),
+      message: t('profile.kyc.submittedMessage'),
+    },
+    VERIFIED: {
+      title: t('profile.kyc.verifiedTitle'),
+      message: t('profile.kyc.verifiedMessage'),
+    },
+  }
+  return map[status]
+}
+
 export function BuyerProfilePage() {
   const { t, i18n } = useTranslation()
   const { refreshUser } = useAuth()
+  const { locale } = useLocaleText()
   const queryClient = useQueryClient()
   const [success, setSuccess] = useState(false)
+  const [uploadingDoc, setUploadingDoc] = useState<DocumentType | null>(null)
 
-  const { data: profile, isLoading, error } = useQuery({
+  const { data: profile, isLoading, error, refetch } = useQuery({
     queryKey: ['buyer-profile'],
     queryFn: profileApi.getBuyerProfile,
   })
@@ -65,11 +100,15 @@ export function BuyerProfilePage() {
     }
   }, [profile, reset])
 
+  const invalidateProfile = async (data: Awaited<ReturnType<typeof profileApi.getBuyerProfile>>) => {
+    queryClient.setQueryData(['buyer-profile'], data)
+    await refreshUser()
+  }
+
   const mutation = useMutation({
     mutationFn: profileApi.updateBuyerProfile,
     onSuccess: async (data) => {
-      queryClient.setQueryData(['buyer-profile'], data)
-      await refreshUser()
+      await invalidateProfile(data)
       if (data.language !== i18n.language) {
         i18n.changeLanguage(data.language)
       }
@@ -78,9 +117,18 @@ export function BuyerProfilePage() {
     },
   })
 
-  const onSubmit = (values: FormValues) => {
-    mutation.mutate(values)
-  }
+  const avatarMutation = useMutation({
+    mutationFn: profileApi.uploadBuyerAvatar,
+    onSuccess: invalidateProfile,
+  })
+
+  const documentMutation = useMutation({
+    mutationFn: ({ file, type }: { file: File; type: DocumentType }) =>
+      profileApi.uploadBuyerDocument(file, type),
+    onMutate: ({ type }) => setUploadingDoc(type),
+    onSettled: () => setUploadingDoc(null),
+    onSuccess: invalidateProfile,
+  })
 
   const buyerTypeOptions = useMemo(
     () =>
@@ -104,73 +152,159 @@ export function BuyerProfilePage() {
     [t]
   )
 
+  const kycLabels = useMemo(
+    () => ({
+      upload: t('profile.kyc.upload'),
+      replace: t('profile.kyc.replace'),
+      pending: t('profile.kyc.pending'),
+      approved: t('profile.kyc.approved'),
+      rejected: t('profile.kyc.rejected'),
+      formatsHint: t('profile.kyc.formatsHint'),
+      docTitles: {
+        GOVT_ID: t('profile.kyc.govtIdTitle'),
+        LAND_RECORD: t('profile.kyc.landRecordTitle'),
+        BANK_PROOF: t('profile.kyc.bankProofTitle'),
+        GST_CERT: t('profile.kyc.gstCertTitle'),
+      },
+      docDescriptions: {
+        GOVT_ID: t('profile.kyc.govtIdDesc'),
+        LAND_RECORD: t('profile.kyc.landRecordDesc'),
+        BANK_PROOF: t('profile.kyc.bankProofDesc'),
+        GST_CERT: t('profile.kyc.gstCertDesc'),
+      },
+    }),
+    [t]
+  )
+
   if (isLoading) {
     return (
-      <div className="mx-auto max-w-2xl space-y-4">
+      <div className="mx-auto max-w-5xl space-y-4">
         <Skeleton className="h-10 w-48" />
-        <Skeleton className="h-96 w-full" />
+        <Skeleton className="h-40 w-full rounded-2xl" />
+        <Skeleton className="h-96 w-full rounded-2xl" />
       </div>
     )
   }
 
   if (error || !profile) {
     return (
-      <div className="mx-auto max-w-2xl rounded-2xl border border-destructive/30 bg-destructive/5 p-6 text-center">
-        <p className="text-destructive">{t('common.error')}</p>
+      <div className="mx-auto max-w-5xl space-y-4 rounded-2xl border border-destructive/30 bg-destructive/5 p-6 text-center">
+        <p className="text-destructive">
+          {error instanceof Error ? error.message : t('common.error')}
+        </p>
+        <Button variant="outline" onClick={() => refetch()}>
+          {t('common.retry')}
+        </Button>
       </div>
     )
   }
 
-  return (
-    <div className="mx-auto max-w-2xl">
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-primary sm:text-3xl">{t('nav.profile')}</h1>
-        <p className="mt-1 text-muted-foreground">{t('profile.buyerSubtitle')}</p>
-      </div>
+  const kyc = profile.kyc ?? defaultKycSummary(BUYER_DOCUMENT_TYPES)
+  const documents = profile.documents ?? []
+  const kycContent = kycBannerContent(kyc.status, t)
+  const displayName = profile.organization ?? profile.name
 
-      <Card>
-        <CardHeader className="flex flex-row items-start justify-between gap-4">
-          <div>
-            <CardTitle>{profile.organization ?? profile.name}</CardTitle>
-            <CardDescription>{profile.email}</CardDescription>
-          </div>
-          {profile.isVerified && (
-            <Badge variant="success" className="gap-1">
-              <CheckCircle2 className="h-3.5 w-3.5" />
-              {t('common.verified')}
-            </Badge>
+  return (
+    <div className="mx-auto max-w-5xl space-y-6">
+      <PageHeader title={t('nav.profile')} description={t('profile.buyerSubtitle')} />
+
+      <KycStatusBanner
+        status={kyc.status}
+        uploadedCount={kyc.uploadedCount}
+        requiredCount={kyc.requiredCount}
+        title={kycContent.title}
+        message={kycContent.message}
+        progressLabel={t('profile.kyc.progress')}
+      />
+
+      <ProfileHeroCard
+        name={displayName}
+        email={profile.email}
+        phone={profile.phone}
+        district={profile.district}
+        profileImageUrl={profile.profileImageUrl}
+        isVerified={profile.isVerified}
+        subtitle={`${t(`buyerTypes.${profile.buyerType}`)} · ${profile.name}`}
+        infoMessage={t('profile.kyc.buyerInfoBox')}
+        isUploadingAvatar={avatarMutation.isPending}
+        onUploadAvatar={(file) => avatarMutation.mutate(file)}
+        labels={{
+          verified: t('common.verified'),
+          uploadPhoto: t('profile.uploadPhoto'),
+          changePhoto: t('profile.changePhoto'),
+          memberSinceText: t('profile.memberSince', {
+            date: formatDate(profile.createdAt, locale),
+          }),
+          lastUpdatedText: t('profile.lastUpdated', {
+            date: formatDate(profile.updatedAt, locale),
+          }),
+          photoFormats: t('profile.photoFormats'),
+        }}
+      />
+
+      <Card className="border-border/80 shadow-card">
+        <CardHeader className="pt-6 sm:pt-8">
+          <CardTitle>{t('profile.kyc.sectionTitle')}</CardTitle>
+          <CardDescription>{t('profile.kyc.sectionSubtitle')}</CardDescription>
+        </CardHeader>
+        <CardContent className="pb-6">
+          <KycDocumentsSection
+            documentTypes={BUYER_DOCUMENT_TYPES}
+            documents={documents}
+            uploadingType={uploadingDoc}
+            onUpload={(file, type) => documentMutation.mutate({ file, type })}
+            title={t('profile.kyc.documentsTitle')}
+            subtitle={t('profile.kyc.documentsSubtitle')}
+            infoMessage={t('profile.kyc.buyerDocumentsInfo')}
+            labels={kycLabels}
+          />
+          {(documentMutation.error || avatarMutation.error) && (
+            <p className="mt-4 rounded-xl bg-destructive/10 p-3 text-sm text-destructive">
+              {(documentMutation.error ?? avatarMutation.error) instanceof Error
+                ? (documentMutation.error ?? avatarMutation.error)?.message
+                : t('common.error')}
+            </p>
           )}
+        </CardContent>
+      </Card>
+
+      <Card className="border-border/80 shadow-card">
+        <CardHeader className="pt-6 sm:pt-8">
+          <CardTitle>{t('profile.detailsTitle')}</CardTitle>
+          <CardDescription>{t('profile.detailsSubtitle')}</CardDescription>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+          <form onSubmit={handleSubmit((values) => mutation.mutate(values))} className="space-y-4">
             <div>
               <label className="mb-1.5 block text-sm font-medium">{t('auth.email')}</label>
               <Input value={profile.email} disabled />
             </div>
 
-            <div>
-              <label className="mb-1.5 block text-sm font-medium">{t('profile.organization')}</label>
-              <Input {...register('organization')} />
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div>
+                <label className="mb-1.5 block text-sm font-medium">{t('profile.organization')}</label>
+                <Input {...register('organization')} />
+              </div>
+              <div>
+                <label className="mb-1.5 block text-sm font-medium">{t('profile.contactName')}</label>
+                <Input {...register('name')} />
+              </div>
             </div>
 
-            <div>
-              <label className="mb-1.5 block text-sm font-medium">{t('profile.contactName')}</label>
-              <Input {...register('name')} />
-            </div>
-
-            <div>
-              <label className="mb-1.5 block text-sm font-medium">{t('profile.phone')}</label>
-              <Input {...register('phone')} type="tel" />
-            </div>
-
-            <div>
-              <label className="mb-1.5 block text-sm font-medium">{t('profile.buyerType')}</label>
-              <FormDropdownSelect
-                name="buyerType"
-                control={control}
-                options={buyerTypeOptions}
-                ariaLabel={t('profile.buyerType')}
-              />
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div>
+                <label className="mb-1.5 block text-sm font-medium">{t('profile.phone')}</label>
+                <Input {...register('phone')} type="tel" />
+              </div>
+              <div>
+                <label className="mb-1.5 block text-sm font-medium">{t('profile.buyerType')}</label>
+                <FormDropdownSelect
+                  name="buyerType"
+                  control={control}
+                  options={buyerTypeOptions}
+                  ariaLabel={t('profile.buyerType')}
+                />
+              </div>
             </div>
 
             <div className="grid gap-4 sm:grid-cols-2">
@@ -211,9 +345,7 @@ export function BuyerProfilePage() {
             )}
 
             {success && (
-              <p className="rounded-xl bg-success/10 p-3 text-sm text-success">
-                {t('profile.saved')}
-              </p>
+              <p className="rounded-xl bg-success/10 p-3 text-sm text-success">{t('profile.saved')}</p>
             )}
 
             <Button type="submit" disabled={isSubmitting || !isDirty} className="w-full sm:w-auto">

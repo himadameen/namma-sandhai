@@ -44,3 +44,9 @@ export const updateBuyerProfileSchema = z.object({
 
 export type UpdateFarmerProfileInput = z.infer<typeof updateFarmerProfileSchema>
 export type UpdateBuyerProfileInput = z.infer<typeof updateBuyerProfileSchema>
+
+export const uploadKycDocumentSchema = z.object({
+  type: z.enum(['GOVT_ID', 'LAND_RECORD', 'BANK_PROOF', 'GST_CERT']),
+})
+
+export type UploadKycDocumentInput = z.infer<typeof uploadKycDocumentSchema>

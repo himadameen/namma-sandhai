@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from 'express'
 import * as salesRecordService from '../services/salesRecord.service'
-import { farmerSalesQuerySchema } from '../validators/salesRecord.validator'
+import { farmerSalesExportQuerySchema, farmerSalesQuerySchema } from '../validators/salesRecord.validator'
 import { successResponse } from '../utils/apiResponse'
 import { AppError } from '../middleware/errorHandler'
 
@@ -18,7 +18,11 @@ export async function listFarmerSalesRecords(req: Request, res: Response, next: 
 export async function exportFarmerSalesRecords(req: Request, res: Response, next: NextFunction) {
   try {
     if (!req.user) throw new AppError(401, 'Authentication required')
-    const { filename, content } = await salesRecordService.exportFarmerSalesCsv(req.user.userId)
+    const query = farmerSalesExportQuerySchema.parse(req.query)
+    const { filename, content } = await salesRecordService.exportFarmerSalesCsv(
+      req.user.userId,
+      query
+    )
     res.setHeader('Content-Type', 'text/csv; charset=utf-8')
     res.setHeader('Content-Disposition', `attachment; filename="${filename}"`)
     res.send(content)

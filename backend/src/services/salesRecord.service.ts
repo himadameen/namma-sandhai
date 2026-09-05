@@ -1,7 +1,7 @@
 import { Prisma } from '@prisma/client'
 import prisma from '../config/database'
 import { AppError } from '../middleware/errorHandler'
-import type { FarmerSalesQuery } from '../validators/salesRecord.validator'
+import type { FarmerSalesExportQuery, FarmerSalesQuery } from '../validators/salesRecord.validator'
 import { formatSalesRecord } from './dashboard.service'
 
 async function getFarmerByUserId(userId: string) {
@@ -26,6 +26,33 @@ function buildLastMonthKeys(count: number) {
     keys.push(monthKey(d))
   }
   return keys
+}
+
+function soldAtRange(year: number, month?: number) {
+  if (month) {
+    return {
+      gte: new Date(year, month - 1, 1),
+      lt: new Date(year, month, 1),
+    }
+  }
+  return {
+    gte: new Date(year, 0, 1),
+    lt: new Date(year + 1, 0, 1),
+  }
+}
+
+function computeChange(current: number, previous: number) {
+  if (previous > 0) {
+    const percent = Math.round(((current - previous) / previous) * 1000) / 10
+    return {
+      changePercent: percent,
+      direction: (percent > 0 ? 'up' : percent < 0 ? 'down' : 'stable') as 'up' | 'down' | 'stable',
+    }
+  }
+  if (current > 0) {
+    return { changePercent: 100, direction: 'up' as const }
+  }
+  return { changePercent: null, direction: 'stable' as const }
 }
 
 type CropAggregate = {
@@ -67,6 +94,17 @@ function aggregateCrops(
       quantity: Math.round(item.quantity * 100) / 100,
     }))
     .sort((a, b) => b.revenue - a.revenue)
+}
+
+function sumPeriod(records: { totalAmount: number; quantity: number }[]) {
+  return records.reduce(
+    (acc, record) => ({
+      revenue: acc.revenue + record.totalAmount,
+      quantity: acc.quantity + record.quantity,
+      count: acc.count + 1,
+    }),
+    { revenue: 0, quantity: 0, count: 0 }
+  )
 }
 
 export async function getFarmerSalesRecords(userId: string, query: FarmerSalesQuery) {
@@ -125,24 +163,14 @@ export async function getFarmerSalesRecords(userId: string, query: FarmerSalesQu
       count: value.count,
     }))
 
+  const availableYears = yearlyRevenue.map((y) => y.year).sort((a, b) => b - a)
+
   const currentMonthRecords = allRecords.filter((r) => monthKey(r.soldAt) === currentMonthKey)
   const previousMonthRecords = allRecords.filter((r) => monthKey(r.soldAt) === previousMonthKey)
 
   const currentMonthRevenue = monthlyMap.get(currentMonthKey)?.revenue ?? 0
   const previousMonthRevenue = monthlyMap.get(previousMonthKey)?.revenue ?? 0
-
-  let monthOverMonthPercent: number | null = null
-  let monthOverMonthDirection: 'up' | 'down' | 'stable' = 'stable'
-  if (previousMonthRevenue > 0) {
-    monthOverMonthPercent = Math.round(
-      ((currentMonthRevenue - previousMonthRevenue) / previousMonthRevenue) * 1000
-    ) / 10
-    monthOverMonthDirection =
-      monthOverMonthPercent > 0 ? 'up' : monthOverMonthPercent < 0 ? 'down' : 'stable'
-  } else if (currentMonthRevenue > 0) {
-    monthOverMonthPercent = 100
-    monthOverMonthDirection = 'up'
-  }
+  const currentMonthChange = computeChange(currentMonthRevenue, previousMonthRevenue)
 
   const bestMonthEntry = Array.from(monthlyMap.entries()).sort(
     ([, a], [, b]) => b.revenue - a.revenue
@@ -152,24 +180,49 @@ export async function getFarmerSalesRecords(userId: string, query: FarmerSalesQu
   )[0]
 
   const currentYear = new Date().getFullYear()
-  const currentYearRevenue =
-    yearlyMap.get(currentYear)?.revenue ?? allRecords
-      .filter((r) => yearKey(r.soldAt) === currentYear)
-      .reduce((sum, r) => sum + r.totalAmount, 0)
+  const currentYearRevenue = yearlyMap.get(currentYear)?.revenue ?? 0
+
+  let periodRecords = allRecords
+  let previousPeriodRecords: typeof allRecords = []
+  let comparisonType: 'previous_month' | 'previous_year' | 'all_time' = 'all_time'
+
+  if (query.year && query.month) {
+    periodRecords = allRecords.filter(
+      (r) => yearKey(r.soldAt) === query.year && r.soldAt.getMonth() + 1 === query.month
+    )
+    const prevDate = new Date(query.year, query.month - 2, 1)
+    previousPeriodRecords = allRecords.filter(
+      (r) =>
+        yearKey(r.soldAt) === prevDate.getFullYear() &&
+        r.soldAt.getMonth() === prevDate.getMonth()
+    )
+    comparisonType = 'previous_month'
+  } else if (query.year) {
+    const selectedYear = query.year
+    periodRecords = allRecords.filter((r) => yearKey(r.soldAt) === selectedYear)
+    previousPeriodRecords = allRecords.filter((r) => yearKey(r.soldAt) === selectedYear - 1)
+    comparisonType = 'previous_year'
+  }
+
+  const periodTotals = sumPeriod(periodRecords)
+  const previousPeriodTotals = sumPeriod(previousPeriodRecords)
+  const periodChange =
+    query.year ? computeChange(periodTotals.revenue, previousPeriodTotals.revenue) : { changePercent: null, direction: 'stable' as const }
 
   const listWhere: Prisma.SalesRecordWhereInput = { farmerId: farmer.id }
   if (query.cropId) listWhere.cropId = query.cropId
   if (query.year) {
-    listWhere.soldAt = {
-      gte: new Date(query.year, 0, 1),
-      lt: new Date(query.year + 1, 0, 1),
-    }
+    listWhere.soldAt = soldAtRange(query.year, query.month)
   }
   if (query.search) {
-    listWhere.OR = [
-      { buyerName: { contains: query.search, mode: 'insensitive' } },
-      { crop: { name: { contains: query.search, mode: 'insensitive' } } },
-      { crop: { nameTamil: { contains: query.search, mode: 'insensitive' } } },
+    listWhere.AND = [
+      {
+        OR: [
+          { buyerName: { contains: query.search, mode: 'insensitive' } },
+          { crop: { name: { contains: query.search, mode: 'insensitive' } } },
+          { crop: { nameTamil: { contains: query.search, mode: 'insensitive' } } },
+        ],
+      },
     ]
   }
 
@@ -186,6 +239,19 @@ export async function getFarmerSalesRecords(userId: string, query: FarmerSalesQu
     }),
     prisma.salesRecord.count({ where: listWhere }),
   ])
+
+  const chartMonthlyRevenue = query.year
+    ? Array.from({ length: 12 }, (_, index) => {
+        const key = `${query.year}-${String(index + 1).padStart(2, '0')}`
+        const value = monthlyMap.get(key) ?? { revenue: 0, quantity: 0, count: 0 }
+        return {
+          monthKey: key,
+          revenue: Math.round(value.revenue),
+          quantity: Math.round(value.quantity * 100) / 100,
+          count: value.count,
+        }
+      })
+    : monthlyRevenue
 
   return {
     records: pageRecords.map(formatSalesRecord),
@@ -205,9 +271,20 @@ export async function getFarmerSalesRecords(userId: string, query: FarmerSalesQu
       previousMonthRevenue: Math.round(previousMonthRevenue),
       currentYearRevenue: Math.round(currentYearRevenue),
     },
+    periodReport: {
+      year: query.year ?? null,
+      month: query.month ?? null,
+      revenue: Math.round(periodTotals.revenue),
+      quantity: Math.round(periodTotals.quantity * 100) / 100,
+      transactionCount: periodTotals.count,
+      previousRevenue: Math.round(previousPeriodTotals.revenue),
+      changePercent: periodChange.changePercent,
+      direction: periodChange.direction,
+      comparisonType,
+    },
     insights: {
-      monthOverMonthPercent,
-      monthOverMonthDirection,
+      monthOverMonthPercent: currentMonthChange.changePercent,
+      monthOverMonthDirection: currentMonthChange.direction,
       currentMonthKey,
       previousMonthKey,
       bestMonthKey: bestMonthEntry?.[0] ?? null,
@@ -215,9 +292,11 @@ export async function getFarmerSalesRecords(userId: string, query: FarmerSalesQu
       bestYear: bestYearEntry?.[0] ?? null,
       bestYearRevenue: bestYearEntry ? Math.round(bestYearEntry[1].revenue) : 0,
     },
+    availableYears,
     yearlyRevenue,
-    monthlyRevenue,
+    monthlyRevenue: chartMonthlyRevenue,
     topCropsOverall: aggregateCrops(allRecords).slice(0, 5),
+    topCropsForPeriod: aggregateCrops(periodRecords).slice(0, 5),
     topCropsThisMonth: aggregateCrops(currentMonthRecords).slice(0, 5),
     topCropsLastMonth: aggregateCrops(previousMonthRecords).slice(0, 5),
   }
@@ -231,11 +310,16 @@ function escapeCsv(value: string | number) {
   return str
 }
 
-export async function exportFarmerSalesCsv(userId: string) {
+export async function exportFarmerSalesCsv(userId: string, query: FarmerSalesExportQuery = {}) {
   const farmer = await getFarmerByUserId(userId)
 
+  const where: Prisma.SalesRecordWhereInput = { farmerId: farmer.id }
+  if (query.year) {
+    where.soldAt = soldAtRange(query.year, query.month)
+  }
+
   const records = await prisma.salesRecord.findMany({
-    where: { farmerId: farmer.id },
+    where,
     include: { crop: true },
     orderBy: { soldAt: 'desc' },
   })
@@ -264,8 +348,16 @@ export async function exportFarmerSalesCsv(userId: string) {
 
   const csv = [headers, ...rows].map((row) => row.map(escapeCsv).join(',')).join('\n')
 
+  const slug = farmer.name.replace(/\s+/g, '-').toLowerCase()
+  let periodSuffix = 'all'
+  if (query.year && query.month) {
+    periodSuffix = `${query.year}-${String(query.month).padStart(2, '0')}`
+  } else if (query.year) {
+    periodSuffix = String(query.year)
+  }
+
   return {
-    filename: `namma-sandhai-sales-${farmer.name.replace(/\s+/g, '-').toLowerCase()}.csv`,
+    filename: `namma-sandhai-sales-${slug}-${periodSuffix}.csv`,
     content: csv,
   }
 }

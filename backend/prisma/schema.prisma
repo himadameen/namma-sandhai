@@ -62,6 +62,19 @@ enum Language {
   ta
 }
 
+enum DocumentType {
+  GOVT_ID
+  LAND_RECORD
+  BANK_PROOF
+  GST_CERT
+}
+
+enum DocumentStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
 model User {
   id        String   @id @default(cuid())
   email     String   @unique
@@ -73,6 +86,7 @@ model User {
   farmer        Farmer?
   buyer         Buyer?
   notifications Notification[]
+  documents     ProfileDocument[]
 
   @@index([role])
 }
@@ -90,6 +104,7 @@ model Farmer {
   address    String?
   language   Language @default(ta)
   isVerified Boolean  @default(false)
+  profileImageUrl String?
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 
@@ -115,6 +130,7 @@ model Buyer {
   address      String?
   language     Language  @default(en)
   isVerified   Boolean   @default(false)
+  profileImageUrl String?
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
 
@@ -275,4 +291,20 @@ model Notification {
 
   @@index([userId, isRead])
   @@index([createdAt])
+}
+
+model ProfileDocument {
+  id          String         @id @default(cuid())
+  userId      String
+  type        DocumentType
+  fileUrl     String
+  fileName    String
+  status      DocumentStatus @default(PENDING)
+  submittedAt DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, type])
+  @@index([userId])
 }

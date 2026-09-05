@@ -123,6 +123,17 @@ export interface SalesRecordsResponse {
     previousMonthRevenue: number
     currentYearRevenue: number
   }
+  periodReport: {
+    year: number | null
+    month: number | null
+    revenue: number
+    quantity: number
+    transactionCount: number
+    previousRevenue: number
+    changePercent: number | null
+    direction: 'up' | 'down' | 'stable'
+    comparisonType: 'previous_month' | 'previous_year' | 'all_time'
+  }
   insights: {
     monthOverMonthPercent: number | null
     monthOverMonthDirection: 'up' | 'down' | 'stable'
@@ -133,9 +144,11 @@ export interface SalesRecordsResponse {
     bestYear: number | null
     bestYearRevenue: number
   }
+  availableYears: number[]
   yearlyRevenue: SalesYearlyPoint[]
   monthlyRevenue: SalesMonthlyPoint[]
   topCropsOverall: SalesCropAggregate[]
+  topCropsForPeriod: SalesCropAggregate[]
   topCropsThisMonth: SalesCropAggregate[]
   topCropsLastMonth: SalesCropAggregate[]
 }
@@ -157,13 +170,17 @@ export const dashboardApi = {
     limit?: number
     cropId?: string
     year?: number
+    month?: number
     search?: string
   }) => apiClient<SalesRecordsResponse>(`/farmers/sales-records${buildQuery(params ?? {})}`),
-  exportFarmerSalesCsv: async () => {
+  exportFarmerSalesCsv: async (params?: { year?: number; month?: number }) => {
     const token = localStorage.getItem('namma-sandhai-token')
-    const response = await fetch(`${API_BASE}/farmers/sales-records/export`, {
-      headers: token ? { Authorization: `Bearer ${token}` } : {},
-    })
+    const response = await fetch(
+      `${API_BASE}/farmers/sales-records/export${buildQuery(params ?? {})}`,
+      {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      }
+    )
     if (!response.ok) {
       const data = await response.json().catch(() => ({}))
       throw new Error(data.message || 'Export failed')
