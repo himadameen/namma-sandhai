@@ -3,13 +3,17 @@ import path from 'path'
 import { randomUUID } from 'crypto'
 import multer from 'multer'
 
-export const LISTINGS_UPLOAD_DIR = path.join(process.cwd(), 'uploads', 'listings')
-export const PROFILES_UPLOAD_DIR = path.join(process.cwd(), 'uploads', 'profiles')
-export const KYC_UPLOAD_DIR = path.join(process.cwd(), 'uploads', 'kyc')
+const uploadRoot = process.env.VERCEL
+  ? path.join('/tmp', 'uploads')
+  : path.join(process.cwd(), 'uploads')
 
-fs.mkdirSync(LISTINGS_UPLOAD_DIR, { recursive: true })
-fs.mkdirSync(PROFILES_UPLOAD_DIR, { recursive: true })
-fs.mkdirSync(KYC_UPLOAD_DIR, { recursive: true })
+export const LISTINGS_UPLOAD_DIR = path.join(uploadRoot, 'listings')
+export const PROFILES_UPLOAD_DIR = path.join(uploadRoot, 'profiles')
+export const KYC_UPLOAD_DIR = path.join(uploadRoot, 'kyc')
+
+for (const dir of [LISTINGS_UPLOAD_DIR, PROFILES_UPLOAD_DIR, KYC_UPLOAD_DIR]) {
+  fs.mkdirSync(dir, { recursive: true })
+}
 
 function createStorage(directory: string) {
   return multer.diskStorage({

@@ -3,3 +3,8 @@ dist
 .env
 .env.local
 uploads
+
+.vercel
+.env*
+.dburl
+.jwtsecret

@@ -1,0 +1,16 @@
+{
+  "rewrites": [
+    {
+      "source": "/api/:path*",
+      "destination": "https://namma-sandhai-api.vercel.app/api/:path*"
+    },
+    {
+      "source": "/uploads/:path*",
+      "destination": "https://namma-sandhai-api.vercel.app/uploads/:path*"
+    },
+    {
+      "source": "/((?!assets|icons|favicon\\.svg|.*\\..*).*)",
+      "destination": "/index.html"
+    }
+  ]
+}
