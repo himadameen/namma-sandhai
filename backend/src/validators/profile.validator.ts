@@ -45,6 +45,17 @@ export const updateBuyerProfileSchema = z.object({
 export type UpdateFarmerProfileInput = z.infer<typeof updateFarmerProfileSchema>
 export type UpdateBuyerProfileInput = z.infer<typeof updateBuyerProfileSchema>
 
+export const updateAdminProfileSchema = z.object({
+  name: z.string().min(2, 'Name is required'),
+  phone: z
+    .string()
+    .optional()
+    .refine((val) => !val || val.replace(/\D/g, '').length >= 10, 'Valid phone number is required'),
+  language: z.enum(['en', 'ta']).optional(),
+})
+
+export type UpdateAdminProfileInput = z.infer<typeof updateAdminProfileSchema>
+
 export const uploadKycDocumentSchema = z.object({
   type: z.enum(['GOVT_ID', 'LAND_RECORD', 'BANK_PROOF', 'GST_CERT']),
 })

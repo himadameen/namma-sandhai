@@ -75,26 +75,89 @@ enum DocumentStatus {
   REJECTED
 }
 
+enum EnquiryStatus {
+  OPEN
+  IN_PROGRESS
+  RESOLVED
+  CLOSED
+}
+
+enum AdminPermission {
+  USERS_MANAGE
+  KYC_REVIEW
+  LISTINGS_MANAGE
+  TRANSACTIONS_VIEW
+  ENQUIRIES_MANAGE
+  REPORTS_VIEW
+  REPORTS_EXPORT
+  ROLES_MANAGE
+  ANALYTICS_VIEW
+}
+
 model User {
-  id        String   @id @default(cuid())
-  email     String   @unique
-  password  String
-  role      UserRole
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id              String   @id @default(cuid())
+  email           String   @unique
+  password        String
+  role            UserRole
+  isActive        Boolean  @default(true)
+  adminRoleId     String?
+  name            String?
+  phone           String?
+  profileImageUrl String?
+  language        Language @default(en)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 
   farmer        Farmer?
   buyer         Buyer?
+  adminRole     AdminRole?         @relation(fields: [adminRoleId], references: [id], onDelete: SetNull)
   notifications Notification[]
   documents     ProfileDocument[]
+  enquiries     SupportEnquiry[]
 
   @@index([role])
+  @@index([isActive])
+  @@index([adminRoleId])
+}
+
+model AdminRole {
+  id          String            @id @default(cuid())
+  name        String            @unique
+  description String?
+  permissions AdminPermission[]
+  isSystem    Boolean           @default(false)
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+
+  users User[]
+}
+
+model SupportEnquiry {
+  id         String        @id @default(cuid())
+  userId     String?
+  name       String
+  email      String
+  phone      String?
+  subject    String
+  message    String
+  status     EnquiryStatus @default(OPEN)
+  adminReply String?
+  adminNotes String?
+  resolvedAt DateTime?
+  createdAt  DateTime      @default(now())
+  updatedAt  DateTime      @updatedAt
+
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([status])
+  @@index([createdAt])
 }
 
 model Farmer {
   id         String   @id @default(cuid())
   userId     String   @unique
   name       String
+  nameTamil  String?
   phone      String
   email      String
   district   String
@@ -152,11 +215,28 @@ model Crop {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  marketPrices MarketPrice[]
-  listings     Listing[]
-  salesRecords SalesRecord[]
+  marketPrices      MarketPrice[]
+  listings          Listing[]
+  salesRecords      SalesRecord[]
+  quantitySnapshots ListingQuantitySnapshot[]
 
   @@index([category])
+}
+
+model ListingQuantitySnapshot {
+  id        String   @id @default(cuid())
+  listingId String
+  cropId    String
+  quantity  Float
+  date      DateTime @db.Date
+  createdAt DateTime @default(now())
+
+  listing Listing @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  crop    Crop    @relation(fields: [cropId], references: [id], onDelete: Cascade)
+
+  @@unique([listingId, date])
+  @@index([date])
+  @@index([cropId])
 }
 
 model MarketPrice {
@@ -197,10 +277,11 @@ model Listing {
   createdAt      DateTime      @default(now())
   updatedAt      DateTime      @updatedAt
 
-  farmer           Farmer            @relation(fields: [farmerId], references: [id], onDelete: Cascade)
-  crop             Crop              @relation(fields: [cropId], references: [id], onDelete: Restrict)
+  farmer           Farmer                    @relation(fields: [farmerId], references: [id], onDelete: Cascade)
+  crop             Crop                      @relation(fields: [cropId], references: [id], onDelete: Restrict)
   purchaseRequests PurchaseRequest[]
   orders           Order[]
+  quantitySnapshots ListingQuantitySnapshot[]
 
   @@index([farmerId])
   @@index([cropId])
@@ -300,6 +381,9 @@ model ProfileDocument {
   fileUrl     String
   fileName    String
   status      DocumentStatus @default(PENDING)
+  reviewNote  String?
+  reviewedBy  String?
+  reviewedAt  DateTime?
   submittedAt DateTime       @default(now())
   updatedAt   DateTime       @updatedAt
 
@@ -307,4 +391,5 @@ model ProfileDocument {
 
   @@unique([userId, type])
   @@index([userId])
+  @@index([status])
 }

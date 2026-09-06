@@ -85,6 +85,25 @@ export type UpdateBuyerProfilePayload = {
   language?: 'en' | 'ta'
 }
 
+export interface AdminProfile {
+  id: string
+  userId: string
+  name: string
+  phone: string
+  email: string
+  language: string
+  profileImageUrl: string | null
+  adminRoleName: string | null
+  createdAt: string
+  updatedAt: string
+}
+
+export type UpdateAdminProfilePayload = {
+  name: string
+  phone?: string
+  language?: 'en' | 'ta'
+}
+
 async function uploadProfileFile(
   endpoint: string,
   file: File,
@@ -132,6 +151,15 @@ export const profileApi = {
     uploadProfileFile('/buyers/profile/avatar', file) as Promise<BuyerProfile>,
   uploadBuyerDocument: (file: File, type: DocumentType) =>
     uploadProfileFile('/buyers/profile/documents', file, { type }) as Promise<BuyerProfile>,
+
+  getAdminProfile: () => apiClient<AdminProfile>('/admin/profile'),
+  updateAdminProfile: (data: UpdateAdminProfilePayload) =>
+    apiClient<AdminProfile>('/admin/profile', {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    }),
+  uploadAdminAvatar: (file: File) =>
+    uploadProfileFile('/admin/profile/avatar', file) as Promise<AdminProfile>,
 }
 
 export const FARMER_DOCUMENT_TYPES: DocumentType[] = ['GOVT_ID', 'LAND_RECORD', 'BANK_PROOF']

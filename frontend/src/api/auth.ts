@@ -11,6 +11,8 @@ export interface AuthUser {
   state: string
   isVerified: boolean
   language: string
+  profileImageUrl?: string | null
+  adminRoleName?: string | null
   farmerId?: string
   buyerId?: string
   farmSize?: string | null
@@ -43,6 +45,12 @@ export interface LoginPayload {
   password: string
 }
 
+export interface ChangePasswordPayload {
+  currentPassword: string
+  newPassword: string
+  confirmPassword: string
+}
+
 export const authApi = {
   register: (data: RegisterPayload) =>
     apiClient<AuthResponse>('/auth/register', {
@@ -57,4 +65,10 @@ export const authApi = {
     }),
 
   me: () => apiClient<AuthUser>('/auth/me'),
+
+  changePassword: (data: ChangePasswordPayload) =>
+    apiClient<{ message: string }>('/auth/password', {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    }),
 }

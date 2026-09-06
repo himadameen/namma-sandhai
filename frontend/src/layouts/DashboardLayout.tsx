@@ -87,7 +87,7 @@ export function AdminLayout() {
       navItems={adminNavItems}
       homeHref="/admin"
       roleLabelKey="panel.roleAdmin"
-      profilePath="/admin"
+      profilePath="/admin/profile"
     />
   )
 }

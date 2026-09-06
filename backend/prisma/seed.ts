@@ -8,6 +8,8 @@ import {
   DeliveryType,
   NotificationType,
   Language,
+  AdminPermission,
+  EnquiryStatus,
   Prisma,
 } from '@prisma/client'
 import bcrypt from 'bcrypt'
@@ -55,21 +57,21 @@ const CROPS = [
 ]
 
 const FARMER_NAMES = [
-  { name: 'முருகன்', farm: 'Murugan Organic Farms', district: 'Krishnagiri' },
-  { name: 'ராஜேஷ்', farm: 'Rajesh Agro Farm', district: 'Salem' },
-  { name: 'கணேசன்', farm: 'Ganesan Greens', district: 'Erode' },
-  { name: 'செல்வம்', farm: 'Selvam Harvest', district: 'Madurai' },
-  { name: 'பாலு', farm: 'Balu Family Farm', district: 'Thanjavur' },
-  { name: 'குமார்', farm: 'Kumar Fresh Produce', district: 'Coimbatore' },
-  { name: 'ரமேஷ்', farm: 'Ramesh Valley Farm', district: 'Dindigul' },
-  { name: 'விஜய்', farm: 'Vijay Agro Estate', district: 'Tiruppur' },
-  { name: 'சுரேஷ்', farm: 'Suresh Organic', district: 'Namakkal' },
-  { name: 'அருண்', farm: 'Arun Farm Fresh', district: 'Karur' },
-  { name: 'மகேஷ்', farm: 'Mahesh Greens', district: 'Dharmapuri' },
-  { name: 'சந்தோஷ்', farm: 'Santhosh Farms', district: 'Vellore' },
-  { name: 'பிரகாஷ்', farm: 'Prakash Agro', district: 'Tiruvannamalai' },
-  { name: 'நடராஜன்', farm: 'Natarajan Produce', district: 'Cuddalore' },
-  { name: 'சிவா', farm: 'Siva Organic Farm', district: 'Villupuram' },
+  { name: 'Murugan', nameTamil: 'முருகன்', farm: 'Murugan Organic Farms', district: 'Krishnagiri' },
+  { name: 'Rajesh', nameTamil: 'ராஜேஷ்', farm: 'Rajesh Agro Farm', district: 'Salem' },
+  { name: 'Ganesan', nameTamil: 'கணேசன்', farm: 'Ganesan Greens', district: 'Erode' },
+  { name: 'Selvam', nameTamil: 'செல்வம்', farm: 'Selvam Harvest', district: 'Madurai' },
+  { name: 'Balu', nameTamil: 'பாலு', farm: 'Balu Family Farm', district: 'Thanjavur' },
+  { name: 'Kumar', nameTamil: 'குமார்', farm: 'Kumar Fresh Produce', district: 'Coimbatore' },
+  { name: 'Ramesh', nameTamil: 'ரமேஷ்', farm: 'Ramesh Valley Farm', district: 'Dindigul' },
+  { name: 'Vijay', nameTamil: 'விஜய்', farm: 'Vijay Agro Estate', district: 'Tiruppur' },
+  { name: 'Suresh', nameTamil: 'சுரேஷ்', farm: 'Suresh Organic', district: 'Namakkal' },
+  { name: 'Arun', nameTamil: 'அருண்', farm: 'Arun Farm Fresh', district: 'Karur' },
+  { name: 'Mahesh', nameTamil: 'மகேஷ்', farm: 'Mahesh Greens', district: 'Dharmapuri' },
+  { name: 'Santhosh', nameTamil: 'சந்தோஷ்', farm: 'Santhosh Farms', district: 'Vellore' },
+  { name: 'Prakash', nameTamil: 'பிரகாஷ்', farm: 'Prakash Agro', district: 'Tiruvannamalai' },
+  { name: 'Natarajan', nameTamil: 'நடராஜன்', farm: 'Natarajan Produce', district: 'Cuddalore' },
+  { name: 'Siva', nameTamil: 'சிவா', farm: 'Siva Organic Farm', district: 'Villupuram' },
 ]
 
 const BUYER_ORGS = [
@@ -157,6 +159,9 @@ async function main() {
   const passwordHash = await bcrypt.hash(DEMO_PASSWORD, 10)
 
   // Clear existing data
+  await prisma.listingQuantitySnapshot.deleteMany()
+  await prisma.supportEnquiry.deleteMany()
+  await prisma.profileDocument.deleteMany()
   await prisma.notification.deleteMany()
   await prisma.salesRecord.deleteMany()
   await prisma.order.deleteMany()
@@ -167,6 +172,7 @@ async function main() {
   await prisma.farmer.deleteMany()
   await prisma.buyer.deleteMany()
   await prisma.user.deleteMany()
+  await prisma.adminRole.deleteMany()
 
   // Crops
   const crops = await Promise.all(
@@ -185,6 +191,7 @@ async function main() {
       farmer: {
         create: {
           name: 'Murugan',
+          nameTamil: 'முருகன்',
           phone: '9876543210',
           email: 'farmer@nammasandhai.demo',
           district: 'Krishnagiri',
@@ -223,11 +230,38 @@ async function main() {
     include: { buyer: true },
   })
 
+  const superAdminRole = await prisma.adminRole.create({
+    data: {
+      name: 'Super Admin',
+      description: 'Full platform access',
+      permissions: Object.values(AdminPermission),
+      isSystem: true,
+    },
+  })
+
+  await prisma.adminRole.create({
+    data: {
+      name: 'Support Manager',
+      description: 'Manage enquiries and view transactions',
+      permissions: [
+        AdminPermission.ENQUIRIES_MANAGE,
+        AdminPermission.TRANSACTIONS_VIEW,
+        AdminPermission.USERS_MANAGE,
+        AdminPermission.KYC_REVIEW,
+      ],
+      isSystem: false,
+    },
+  })
+
   await prisma.user.create({
     data: {
       email: 'admin@nammasandhai.demo',
       password: passwordHash,
       role: UserRole.ADMIN,
+      adminRoleId: superAdminRole.id,
+      name: 'Platform Admin',
+      phone: '9876543210',
+      language: Language.en,
     },
   })
 
@@ -243,6 +277,7 @@ async function main() {
         farmer: {
           create: {
             name: f.name,
+            nameTamil: f.nameTamil,
             phone: `98765${String(43210 + i).slice(-5)}`,
             email: `farmer${i + 1}@nammasandhai.demo`,
             district: f.district,
@@ -717,6 +752,56 @@ async function main() {
   console.log('  ✓ demo media variants (4 / 3 / 3 / 2 images on sample listings)')
 
   console.log(`  ✓ demo scenario (Tomato listing: ${demoTomatoListing.id})`)
+
+  await prisma.supportEnquiry.createMany({
+    data: [
+      {
+        name: 'Rajesh Kumar',
+        email: 'rajesh@example.com',
+        phone: '9876543210',
+        subject: 'Payment not received for completed order',
+        message: 'I completed an order last week but payment is still pending. Order reference needed.',
+        status: EnquiryStatus.OPEN,
+      },
+      {
+        name: demoFarmerUser.farmer!.name,
+        email: demoFarmerUser.email,
+        userId: demoFarmerUser.id,
+        subject: 'KYC document verification delay',
+        message: 'I uploaded my land records 5 days ago. Please review my KYC documents.',
+        status: EnquiryStatus.IN_PROGRESS,
+        adminNotes: 'Documents under review',
+      },
+      {
+        name: 'Priya Traders',
+        email: 'priya@traders.in',
+        subject: 'Bulk tomato enquiry',
+        message: 'Looking for 2000 kg tomato weekly supply from Krishnagiri region.',
+        status: EnquiryStatus.RESOLVED,
+        adminReply: 'Connected you with verified farmers in Krishnagiri. Check your email.',
+        resolvedAt: new Date(),
+      },
+    ],
+  })
+
+  const yesterday = new Date()
+  yesterday.setDate(yesterday.getDate() - 1)
+  yesterday.setHours(0, 0, 0, 0)
+  const activeListings = await prisma.listing.findMany({
+    where: { status: ListingStatus.ACTIVE },
+    select: { id: true, cropId: true, quantity: true },
+  })
+  if (activeListings.length > 0) {
+    await prisma.listingQuantitySnapshot.createMany({
+      data: activeListings.map((l, i) => ({
+        listingId: l.id,
+        cropId: l.cropId,
+        quantity: l.quantity + (i % 3 === 0 ? 50 : i % 3 === 1 ? -30 : 0),
+        date: yesterday,
+      })),
+      skipDuplicates: true,
+    })
+  }
 
   console.log('\n✅ Seed complete!')
   console.log('\nDemo accounts (password: Demo@2026):')

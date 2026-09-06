@@ -6,6 +6,18 @@ import { ProtectedRoute } from '@/components/auth/ProtectedRoute'
 import { LandingPage } from '@/pages/LandingPage'
 import { LoginPage, RegisterPage } from '@/pages/auth/AuthPages'
 import { AdminPanelPage } from '@/pages/admin/AdminPanelPage'
+import {
+  AdminAnalyticsPage,
+  AdminEnquiriesPage,
+  AdminKycPage,
+  AdminListingsPage,
+  AdminProfilePage,
+  AdminReportsPage,
+  AdminRolesPage,
+  AdminStockPage,
+  AdminTransactionsPage,
+  AdminUsersPage,
+} from '@/pages/admin/AdminPages'
 import { FarmerProfilePage } from '@/pages/farmer/FarmerProfilePage'
 import { BuyerProfilePage } from '@/pages/buyer/BuyerProfilePage'
 import { MarketplacePage } from '@/pages/marketplace/MarketplacePage'
@@ -80,6 +92,16 @@ export const router = createBrowserRouter([
         ),
         children: [
           { path: '/admin', element: <AdminPanelPage /> },
+          { path: '/admin/users', element: <AdminUsersPage /> },
+          { path: '/admin/kyc', element: <AdminKycPage /> },
+          { path: '/admin/listings', element: <AdminListingsPage /> },
+          { path: '/admin/transactions', element: <AdminTransactionsPage /> },
+          { path: '/admin/enquiries', element: <AdminEnquiriesPage /> },
+          { path: '/admin/analytics', element: <AdminAnalyticsPage /> },
+          { path: '/admin/stock', element: <AdminStockPage /> },
+          { path: '/admin/reports', element: <AdminReportsPage /> },
+          { path: '/admin/roles', element: <AdminRolesPage /> },
+          { path: '/admin/profile', element: <AdminProfilePage /> },
         ],
       },
       { path: '*', element: <Navigate to="/" replace /> },

@@ -18,6 +18,9 @@ export async function apiClient<T>(
   const data = await response.json()
 
   if (!response.ok || !data.success) {
+    if (response.status === 401 && token) {
+      localStorage.removeItem('namma-sandhai-token')
+    }
     throw new Error(data.message || 'Request failed')
   }
 

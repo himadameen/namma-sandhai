@@ -8,6 +8,7 @@ import { useAuth } from '@/store/auth'
 import { useLocaleText } from '@/hooks/useLocaleText'
 import { formatDisplayId } from '@/utils/displayId'
 import { getDashboardPath } from '@/utils/auth'
+import { resolveMediaUrl } from '@/utils/media'
 import { cn } from '@/lib/utils'
 
 interface DashboardHeaderProps {
@@ -21,7 +22,8 @@ export function DashboardHeader({ roleLabelKey, profilePath = '/farmer/profile' 
   const [profileOpen, setProfileOpen] = useState(false)
 
   const dashboardPath = user ? getDashboardPath(user.role) : '/'
-  const displayId = formatDisplayId(user?.farmerId ?? user?.buyerId, user?.role)
+  const displayId = formatDisplayId(user?.farmerId ?? user?.buyerId ?? user?.id, user?.role)
+  const avatarUrl = user?.profileImageUrl ? resolveMediaUrl(user.profileImageUrl) : ''
 
   return (
     <>
@@ -58,7 +60,11 @@ export function DashboardHeader({ roleLabelKey, profilePath = '/farmer/profile' 
                   className="group flex items-center gap-2 rounded-lg px-0.5 py-1 text-left transition-colors sm:gap-2.5"
                 >
                   <div className="relative flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-primary/10 text-sm font-bold text-primary ring-2 ring-primary/15 transition-all group-hover:bg-primary/15 group-hover:ring-primary/30">
-                    <span aria-hidden>{(user.name ?? '?').charAt(0).toUpperCase()}</span>
+                    {avatarUrl ? (
+                      <img src={avatarUrl} alt={user.name || user.email} className="h-full w-full object-cover" />
+                    ) : (
+                      <span aria-hidden>{(user.name ?? '?').charAt(0).toUpperCase()}</span>
+                    )}
                   </div>
 
                   <div className="hidden min-w-0 sm:block">

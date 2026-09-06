@@ -9,10 +9,16 @@ import {
   Receipt,
   User,
   Store,
-  ShieldCheck,
   LogOut,
   ChevronLeft,
   ChevronRight,
+  Users,
+  FileCheck,
+  MessageSquare,
+  BarChart3,
+  Warehouse,
+  Download,
+  Shield,
 } from 'lucide-react'
 import { LogoMark } from '@/components/brand/LogoMark'
 import { Logo } from '@/components/brand/Logo'
@@ -46,8 +52,24 @@ export const buyerNavItems: DashboardNavItem[] = [
 ]
 
 export const adminNavItems: DashboardNavItem[] = [
-  { href: '/admin', labelKey: 'nav.admin', icon: ShieldCheck },
+  { href: '/admin', labelKey: 'admin.overview', icon: LayoutDashboard },
+  { href: '/admin/users', labelKey: 'admin.users', icon: Users },
+  { href: '/admin/kyc', labelKey: 'admin.kycReview', icon: FileCheck },
+  { href: '/admin/listings', labelKey: 'admin.productListings', icon: Package },
+  { href: '/admin/transactions', labelKey: 'admin.transactions', icon: Receipt },
+  { href: '/admin/enquiries', labelKey: 'admin.enquiries', icon: MessageSquare },
+  { href: '/admin/analytics', labelKey: 'admin.analytics', icon: BarChart3 },
+  { href: '/admin/stock', labelKey: 'admin.stockChanges', icon: Warehouse },
+  { href: '/admin/reports', labelKey: 'admin.reports', icon: Download },
+  { href: '/admin/roles', labelKey: 'admin.roles', icon: Shield },
 ]
+
+function isNavItemActive(pathname: string, href: string) {
+  if (href === '/admin') {
+    return pathname === '/admin' || pathname === '/admin/'
+  }
+  return pathname === href || pathname.startsWith(`${href}/`)
+}
 
 interface DashboardSidebarProps {
   items: DashboardNavItem[]
@@ -106,10 +128,7 @@ export function DashboardSidebar({ items, homeHref }: DashboardSidebarProps) {
       <nav className="flex-1 space-y-1 overflow-y-auto overflow-x-hidden px-2 py-3">
         {items.map((item) => {
           const Icon = item.icon
-          const active =
-            item.href === '/admin'
-              ? location.pathname === '/admin'
-              : location.pathname.startsWith(item.href)
+          const active = isNavItemActive(location.pathname, item.href)
 
           return (
             <Link
@@ -164,7 +183,7 @@ export function MobileBottomNav({ items }: MobileBottomNavProps) {
       <div className="flex items-stretch justify-around py-1.5">
         {mobileItems.map((item) => {
           const Icon = item.icon
-          const active = location.pathname.startsWith(item.href)
+          const active = isNavItemActive(location.pathname, item.href)
 
           return (
             <Link

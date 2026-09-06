@@ -7,10 +7,10 @@ import { cn } from '@/lib/utils'
 interface ProfileHeroCardProps {
   name: string
   email: string
-  phone: string
-  district: string
+  phone?: string
+  district?: string
   profileImageUrl?: string | null
-  isVerified: boolean
+  isVerified?: boolean
   infoMessage: string
   subtitle?: string
   textClass?: string
@@ -32,7 +32,7 @@ export function ProfileHeroCard({
   phone,
   district,
   profileImageUrl,
-  isVerified,
+  isVerified = false,
   infoMessage,
   subtitle,
   textClass,
@@ -75,14 +75,18 @@ export function ProfileHeroCard({
               )}
 
               <div className="mt-3 flex flex-wrap justify-center gap-2 sm:justify-start">
-                <span className="inline-flex items-center gap-1.5 rounded-lg border border-border/60 bg-muted/30 px-2.5 py-1 text-sm text-foreground">
-                  <Phone className="h-3.5 w-3.5 text-primary" />
-                  {phone}
-                </span>
-                <span className="inline-flex items-center gap-1.5 rounded-lg border border-border/60 bg-muted/30 px-2.5 py-1 text-sm text-foreground">
-                  <MapPin className="h-3.5 w-3.5 text-primary" />
-                  {district}
-                </span>
+                {phone ? (
+                  <span className="inline-flex items-center gap-1.5 rounded-lg border border-border/60 bg-muted/30 px-2.5 py-1 text-sm text-foreground">
+                    <Phone className="h-3.5 w-3.5 text-primary" />
+                    {phone}
+                  </span>
+                ) : null}
+                {district ? (
+                  <span className="inline-flex items-center gap-1.5 rounded-lg border border-border/60 bg-muted/30 px-2.5 py-1 text-sm text-foreground">
+                    <MapPin className="h-3.5 w-3.5 text-primary" />
+                    {district}
+                  </span>
+                ) : null}
               </div>
 
               <div className="mt-2.5 flex flex-wrap justify-center gap-2 sm:justify-start">

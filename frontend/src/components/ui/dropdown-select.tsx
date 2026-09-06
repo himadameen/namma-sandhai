@@ -16,6 +16,7 @@ interface DropdownSelectProps<T extends string | number> {
   align?: 'left' | 'right'
   fullWidth?: boolean
   disabled?: boolean
+  size?: 'sm' | 'md'
 }
 
 export function DropdownSelect<T extends string | number>({
@@ -27,6 +28,7 @@ export function DropdownSelect<T extends string | number>({
   align = 'right',
   fullWidth = false,
   disabled = false,
+  size = 'sm',
 }: DropdownSelectProps<T>) {
   const [open, setOpen] = useState(false)
   const rootRef = useRef<HTMLDivElement>(null)
@@ -62,7 +64,8 @@ export function DropdownSelect<T extends string | number>({
         onClick={() => !disabled && setOpen((current) => !current)}
         className={cn(
           'inline-flex items-center justify-between gap-2 rounded-xl border border-border bg-card px-4 text-sm font-medium text-foreground shadow-sm transition-colors hover:border-primary/30 hover:bg-muted/40 disabled:cursor-not-allowed disabled:opacity-50',
-          fullWidth ? 'h-11 w-full min-w-0' : 'h-9 min-w-[7.5rem]'
+          fullWidth ? 'w-full min-w-0' : 'min-w-[8rem]',
+          size === 'md' ? 'h-10' : fullWidth ? 'h-11' : 'h-9'
         )}
       >
         <span className="truncate">{selected?.label ?? value}</span>
