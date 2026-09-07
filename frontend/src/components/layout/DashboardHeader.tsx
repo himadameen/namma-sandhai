@@ -57,6 +57,7 @@ export function DashboardHeader({ roleLabelKey, profilePath = '/farmer/profile' 
                   onClick={() => setProfileOpen(true)}
                   aria-expanded={profileOpen}
                   aria-haspopup="dialog"
+                  aria-label={t('profilePanel.title')}
                   className="group flex items-center gap-2 rounded-lg px-0.5 py-1 text-left transition-colors sm:gap-2.5"
                 >
                   <div className="relative flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-primary/10 text-sm font-bold text-primary ring-2 ring-primary/15 transition-all group-hover:bg-primary/15 group-hover:ring-primary/30">

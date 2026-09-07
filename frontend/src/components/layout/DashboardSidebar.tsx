@@ -1,5 +1,6 @@
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import type { LucideIcon } from 'lucide-react'
+import { useMemo, useState } from 'react'
 import {
   LayoutDashboard,
   Sprout,
@@ -19,9 +20,12 @@ import {
   Warehouse,
   Download,
   Shield,
+  MoreHorizontal,
+  X,
 } from 'lucide-react'
 import { LogoMark } from '@/components/brand/LogoMark'
 import { Logo } from '@/components/brand/Logo'
+import { resetScrollPosition } from '@/components/layout/ScrollToTop'
 import { useDashboardShell } from '@/store/dashboardShell'
 import { useAuth } from '@/store/auth'
 import { useLocaleText } from '@/hooks/useLocaleText'
@@ -62,6 +66,7 @@ export const adminNavItems: DashboardNavItem[] = [
   { href: '/admin/stock', labelKey: 'admin.stockChanges', icon: Warehouse },
   { href: '/admin/reports', labelKey: 'admin.reports', icon: Download },
   { href: '/admin/roles', labelKey: 'admin.roles', icon: Shield },
+  { href: '/admin/profile', labelKey: 'nav.profile', icon: User },
 ]
 
 function isNavItemActive(pathname: string, href: string) {
@@ -135,6 +140,7 @@ export function DashboardSidebar({ items, homeHref }: DashboardSidebarProps) {
               key={item.href}
               to={item.href}
               title={collapsed ? t(item.labelKey) : undefined}
+              onClick={resetScrollPosition}
               className={cn(
                 'cta-interactive group flex items-center rounded-xl py-2.5 text-sm font-semibold transition-colors',
                 collapsed ? 'justify-center px-2' : 'gap-3 px-3',
@@ -170,36 +176,190 @@ export function DashboardSidebar({ items, homeHref }: DashboardSidebarProps) {
 
 interface MobileBottomNavProps {
   items: DashboardNavItem[]
+  profilePath: string
 }
 
-export function MobileBottomNav({ items }: MobileBottomNavProps) {
+const MOBILE_PRIMARY_SLOTS = 4
+
+function buildMobileNavSlots(items: DashboardNavItem[], profilePath: string) {
+  const profileItem: DashboardNavItem =
+    items.find((item) => item.href === profilePath) ?? {
+      href: profilePath,
+      labelKey: 'nav.profile',
+      icon: User,
+    }
+
+  const withoutProfile = items.filter((item) => item.href !== profilePath)
+
+  return {
+    primary: withoutProfile.slice(0, MOBILE_PRIMARY_SLOTS),
+    profileItem,
+    overflow: withoutProfile.slice(MOBILE_PRIMARY_SLOTS),
+  }
+}
+
+function MobileMoreMenu({
+  open,
+  onClose,
+  overflow,
+  profileItem,
+}: {
+  open: boolean
+  onClose: () => void
+  overflow: DashboardNavItem[]
+  profileItem: DashboardNavItem
+}) {
   const location = useLocation()
+  const navigate = useNavigate()
+  const { logout } = useAuth()
   const { t, textClass } = useLocaleText()
 
-  const mobileItems = items.slice(0, 5)
+  if (!open) return null
+
+  const handleLogout = () => {
+    onClose()
+    logout()
+    navigate('/')
+  }
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-border bg-card/95 backdrop-blur-md md:hidden">
-      <div className="flex items-stretch justify-around py-1.5">
-        {mobileItems.map((item) => {
-          const Icon = item.icon
-          const active = isNavItemActive(location.pathname, item.href)
-
-          return (
+    <div className="fixed inset-0 z-[60] md:hidden">
+      <button
+        type="button"
+        className="absolute inset-0 bg-black/40 backdrop-blur-[2px]"
+        onClick={onClose}
+        aria-label={t('profilePanel.close')}
+      />
+      <div className="absolute inset-x-0 bottom-0 max-h-[min(85dvh,32rem)] overflow-hidden rounded-t-2xl border-t border-border bg-card shadow-elevated animate-in slide-in-from-bottom duration-300">
+        <div className="flex items-center justify-between border-b border-border px-4 py-3">
+          <h2 className={cn('text-base font-bold', textClass)}>{t('nav.more')}</h2>
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-lg p-1.5 text-muted-foreground hover:bg-muted"
+            aria-label={t('profilePanel.close')}
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+        <div className="overflow-y-auto p-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
+          <div className="grid grid-cols-2 gap-2">
+            {overflow.map((item) => {
+              const Icon = item.icon
+              const active = isNavItemActive(location.pathname, item.href)
+              return (
+              <Link
+                key={item.href}
+                to={item.href}
+                onClick={() => {
+                  onClose()
+                  resetScrollPosition()
+                }}
+                  className={cn(
+                    'flex flex-col items-center gap-2 rounded-xl border px-3 py-4 text-center text-xs font-semibold transition-colors',
+                    active
+                      ? 'border-primary/30 bg-primary/10 text-primary'
+                      : 'border-border bg-muted/20 text-foreground hover:bg-muted/40'
+                  )}
+                >
+                  <Icon className="h-5 w-5 shrink-0" />
+                  <span className={cn('line-clamp-2', textClass)}>{t(item.labelKey)}</span>
+                </Link>
+              )
+            })}
             <Link
-              key={item.href}
-              to={item.href}
+              to={profileItem.href}
+              onClick={() => {
+                onClose()
+                resetScrollPosition()
+              }}
               className={cn(
-                'cta-interactive flex min-w-0 flex-1 flex-col items-center gap-0.5 px-1 py-1 text-[10px] font-medium',
-                active ? 'text-primary' : 'text-muted-foreground'
+                'flex flex-col items-center gap-2 rounded-xl border px-3 py-4 text-center text-xs font-semibold transition-colors',
+                isNavItemActive(location.pathname, profileItem.href)
+                  ? 'border-primary/30 bg-primary/10 text-primary'
+                  : 'border-border bg-muted/20 text-foreground hover:bg-muted/40'
               )}
             >
-              <Icon className="h-5 w-5 shrink-0" />
-              <span className={cn('max-w-[4.5rem] truncate', textClass)}>{t(item.labelKey)}</span>
+              <User className="h-5 w-5 shrink-0" />
+              <span className={cn('line-clamp-2', textClass)}>{t(profileItem.labelKey)}</span>
             </Link>
-          )
-        })}
+          </div>
+          <div className="mt-4 border-t border-border pt-4">
+            <button
+              type="button"
+              onClick={handleLogout}
+              className="flex w-full items-center gap-3 rounded-xl border border-destructive/25 bg-destructive/5 px-4 py-3 text-sm font-semibold text-destructive"
+            >
+              <LogOut className="h-5 w-5" />
+              {t('nav.logout')}
+            </button>
+          </div>
+        </div>
       </div>
-    </nav>
+    </div>
+  )
+}
+
+export function MobileBottomNav({ items, profilePath }: MobileBottomNavProps) {
+  const location = useLocation()
+  const { t, textClass } = useLocaleText()
+  const [moreOpen, setMoreOpen] = useState(false)
+
+  const { primary, profileItem, overflow } = useMemo(
+    () => buildMobileNavSlots(items, profilePath),
+    [items, profilePath]
+  )
+
+  const moreActive =
+    moreOpen ||
+    isNavItemActive(location.pathname, profileItem.href) ||
+    overflow.some((item) => isNavItemActive(location.pathname, item.href))
+
+  return (
+    <>
+      <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-border bg-card/95 backdrop-blur-md md:hidden">
+        <div className="flex items-stretch justify-around py-1.5 pb-[max(0.375rem,env(safe-area-inset-bottom))]">
+          {primary.map((item) => {
+            const Icon = item.icon
+            const active = isNavItemActive(location.pathname, item.href)
+
+            return (
+              <Link
+                key={item.href}
+                to={item.href}
+                onClick={resetScrollPosition}
+                className={cn(
+                  'cta-interactive flex min-w-0 flex-1 flex-col items-center gap-0.5 px-1 py-1 text-[10px] font-medium',
+                  active ? 'text-primary' : 'text-muted-foreground'
+                )}
+              >
+                <Icon className="h-5 w-5 shrink-0" />
+                <span className={cn('max-w-[4.5rem] truncate', textClass)}>{t(item.labelKey)}</span>
+              </Link>
+            )
+          })}
+
+          <button
+            type="button"
+            onClick={() => setMoreOpen(true)}
+            className={cn(
+              'cta-interactive flex min-w-0 flex-1 flex-col items-center gap-0.5 px-1 py-1 text-[10px] font-medium',
+              moreActive ? 'text-primary' : 'text-muted-foreground'
+            )}
+            aria-label={t('nav.more')}
+          >
+            <MoreHorizontal className="h-5 w-5 shrink-0" />
+            <span className={cn('max-w-[4.5rem] truncate', textClass)}>{t('nav.more')}</span>
+          </button>
+        </div>
+      </nav>
+
+      <MobileMoreMenu
+        open={moreOpen}
+        onClose={() => setMoreOpen(false)}
+        overflow={overflow}
+        profileItem={profileItem}
+      />
+    </>
   )
 }

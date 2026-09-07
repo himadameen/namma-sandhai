@@ -1,7 +1,8 @@
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { useEffect, useRef } from 'react'
 import {
   ChevronRight,
+  LogOut,
   Shield,
   UserPen,
   X,
@@ -24,7 +25,8 @@ interface DashboardProfilePanelProps {
 }
 
 export function DashboardProfilePanel({ open, onClose, profilePath }: DashboardProfilePanelProps) {
-  const { user } = useAuth()
+  const { user, logout } = useAuth()
+  const navigate = useNavigate()
   const { t, textClass } = useLocaleText()
   const panelRef = useRef<HTMLDivElement>(null)
 
@@ -56,6 +58,13 @@ export function DashboardProfilePanel({ open, onClose, profilePath }: DashboardP
   const displayId = formatDisplayId(user?.farmerId ?? user?.buyerId ?? user?.id, user?.role)
   const avatarUrl = user?.profileImageUrl ? resolveMediaUrl(user.profileImageUrl) : ''
   const isAdmin = user?.role === 'ADMIN'
+  const isFarmer = user?.role === 'FARMER'
+
+  const handleLogout = () => {
+    onClose()
+    logout()
+    navigate('/')
+  }
 
   return (
     <div className="fixed inset-0 z-[70] flex justify-end">
@@ -153,35 +162,41 @@ export function DashboardProfilePanel({ open, onClose, profilePath }: DashboardP
             </div>
           ) : null}
 
-          {!isAdmin && user?.role === 'FARMER' ? (
-            <>
-              <div className="mt-6 space-y-3">
-                <h3 className={cn('text-sm font-bold uppercase tracking-wide text-muted-foreground', textClass)}>
-                  {t('profilePanel.reports')}
-                </h3>
-                <Link
-                  to="/farmer/sales"
-                  onClick={onClose}
-                  className="cta-interactive flex items-center justify-between rounded-xl border border-border bg-background px-4 py-3 hover:border-primary/30 hover:bg-primary/5"
-                >
-                  <span className={cn('text-sm font-medium', textClass)}>{t('profilePanel.salesReport')}</span>
-                  <ChevronRight className="h-4 w-4 text-muted-foreground" />
-                </Link>
-              </div>
-            </>
-          ) : (
+          {isFarmer ? (
+            <div className="mt-6 space-y-3">
+              <h3 className={cn('text-sm font-bold uppercase tracking-wide text-muted-foreground', textClass)}>
+                {t('profilePanel.reports')}
+              </h3>
+              <Link
+                to="/farmer/sales"
+                onClick={onClose}
+                className="cta-interactive flex items-center justify-between rounded-xl border border-border bg-background px-4 py-3 hover:border-primary/30 hover:bg-primary/5"
+              >
+                <span className={cn('text-sm font-medium', textClass)}>{t('profilePanel.salesReport')}</span>
+                <ChevronRight className="h-4 w-4 text-muted-foreground" />
+              </Link>
+            </div>
+          ) : isAdmin ? (
             <div className="mt-6 rounded-xl border border-dashed border-primary/25 bg-primary/5 p-4 text-sm text-muted-foreground">
               {t('profile.adminPanelHint')}
             </div>
-          )}
+          ) : null}
         </div>
 
-        <div className="shrink-0 border-t border-border p-4">
+        <div className="shrink-0 space-y-2 border-t border-border p-4">
           <Button asChild className={cn('w-full', textClass)}>
             <Link to={profilePath} onClick={onClose}>
               <UserPen className="mr-2 h-4 w-4" />
               {t('profilePanel.editProfile')}
             </Link>
+          </Button>
+          <Button
+            variant="outline"
+            className={cn('w-full border-destructive/30 text-destructive hover:bg-destructive/10 hover:text-destructive', textClass)}
+            onClick={handleLogout}
+          >
+            <LogOut className="mr-2 h-4 w-4" />
+            {t('nav.logout')}
           </Button>
         </div>
       </div>
